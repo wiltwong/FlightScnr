@@ -1,4 +1,4 @@
-import { ESPLoader, Transport } from "https://esm.sh/esptool-js@0.5.4";
+import { ESPLoader, Transport } from "./vendor/esptool-js.bundle.js";
 
 const REPO = "yashmulgaonkar/FlightScnr";
 const MERGED_ASSET = "FlightScnr-tencoder-pro-merged.bin";
