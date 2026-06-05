@@ -64,11 +64,6 @@ uint32_t fr24BudgetUsdMicro();
 uint32_t fr24CostUsdMicro();
 uint32_t fr24SpentUsdMicro();
 
-/** First configured key (legacy). */
-const char* airLabsKey();
-const char* flightAwareKey();
-const char* fr24Key();
-
 /** Masked preview for settings page (e.g. "3 keys" or "••••abcd"). */
 void maskedAirLabs(char* out, size_t len);
 void maskedFlightAware(char* out, size_t len);

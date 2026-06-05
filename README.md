@@ -111,6 +111,8 @@ pio run -e tencoder-pro -t upload
 pio device monitor
 ```
 
+Each build downloads the latest [tar1090-db](https://github.com/wiedehopf/tar1090-db) aircraft database and regenerates the ICAO type lookup (e.g. `E75L` → Embraer ERJ-170-200). If the download fails, the last cached or committed lookup is used. Refresh manually with `python tools/icao_types_to_header.py`.
+
 ### Single merged binary (web flasher / factory image)
 
 ```bash
@@ -158,7 +160,7 @@ Original application code, tools, and documentation in this repository are licen
 - **NonCommercial:** you may not use this material for commercial purposes without separate permission.
 - **ShareAlike:** adaptations must be released under the same license.
 
-Vendored libraries (`lib/Arduino_GFX`, `lib/Arduino_DriveBus`, `lib/SensorLib`, and PlatformIO registry dependencies) remain under **their own licenses** (GPL, MIT, etc.). Combining them into a binary does not re-license those components. Comply with each upstream license when you distribute builds.
+Vendored libraries (`lib/Arduino_GFX`, `lib/SensorLib`, and PlatformIO registry dependencies) remain under **their own licenses** (GPL, MIT, etc.). Combining them into a binary does not re-license those components. Comply with each upstream license when you distribute builds.
 
 ### Enclosure license
 

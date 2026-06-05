@@ -15,6 +15,7 @@
 
 #include "config.h"
 #include "services/airline_lookup.h"
+#include "services/airport_lookup.h"
 #include "services/api_keys.h"
 #include "services/route_cache_store.h"
 
@@ -62,12 +63,28 @@ bool routeHasData(const RouteInfo& r) {
 }
 
 void applyRouteToAircraft(services::adsb::Aircraft& ac, const RouteInfo& info) {
-  strncpy(ac.airline, info.airline, sizeof(ac.airline) - 1);
-  ac.airline[sizeof(ac.airline) - 1] = '\0';
-  strncpy(ac.route_origin, info.origin, sizeof(ac.route_origin) - 1);
-  ac.route_origin[sizeof(ac.route_origin) - 1] = '\0';
-  strncpy(ac.route_dest, info.dest, sizeof(ac.route_dest) - 1);
-  ac.route_dest[sizeof(ac.route_dest) - 1] = '\0';
+  if (info.airline[0] != '\0') {
+    strncpy(ac.airline, info.airline, sizeof(ac.airline) - 1);
+    ac.airline[sizeof(ac.airline) - 1] = '\0';
+  }
+  if (info.origin[0] != '\0') {
+    char resolved[5];
+    if (services::airport::normalizeRouteCode(info.origin, resolved, sizeof(resolved))) {
+      strncpy(ac.route_origin, resolved, sizeof(ac.route_origin) - 1);
+    } else {
+      strncpy(ac.route_origin, info.origin, sizeof(ac.route_origin) - 1);
+    }
+    ac.route_origin[sizeof(ac.route_origin) - 1] = '\0';
+  }
+  if (info.dest[0] != '\0') {
+    char resolved[5];
+    if (services::airport::normalizeRouteCode(info.dest, resolved, sizeof(resolved))) {
+      strncpy(ac.route_dest, resolved, sizeof(ac.route_dest) - 1);
+    } else {
+      strncpy(ac.route_dest, info.dest, sizeof(ac.route_dest) - 1);
+    }
+    ac.route_dest[sizeof(ac.route_dest) - 1] = '\0';
+  }
 }
 
 void copyAirportCode(const char* s, char* out, size_t out_len) {
@@ -85,6 +102,17 @@ void copyAirportCode(const char* s, char* out, size_t out_len) {
     ++n;
   }
   out[n] = '\0';
+}
+
+void copyRouteIcao(const char* s, char* out, size_t out_len) {
+  copyAirportCode(s, out, out_len);
+  if (out[0] == '\0') {
+    return;
+  }
+  char resolved[5];
+  if (services::airport::normalizeRouteCode(out, resolved, sizeof(resolved))) {
+    copyAirportCode(resolved, out, out_len);
+  }
 }
 
 bool isIcaoRadioCallsign(const char* cs) {
@@ -409,8 +437,14 @@ bool lookupAirLabsWithKey(const char* callsign, RouteInfo* route, const char* ap
     return false;
   }
 
-  copyAirportCode(data["dep_iata"].as<const char*>(), route->origin, sizeof(route->origin));
-  copyAirportCode(data["arr_iata"].as<const char*>(), route->dest, sizeof(route->dest));
+  copyRouteIcao(data["dep_icao"].as<const char*>(), route->origin, sizeof(route->origin));
+  if (route->origin[0] == '\0') {
+    copyRouteIcao(data["dep_iata"].as<const char*>(), route->origin, sizeof(route->origin));
+  }
+  copyRouteIcao(data["arr_icao"].as<const char*>(), route->dest, sizeof(route->dest));
+  if (route->dest[0] == '\0') {
+    copyRouteIcao(data["arr_iata"].as<const char*>(), route->dest, sizeof(route->dest));
+  }
   fillAirlineFromAirLabs(data, route);
   return routeHasData(*route);
 }
@@ -500,17 +534,17 @@ bool lookupFlightAwareWithKey(const char* callsign, RouteInfo* route, const char
   JsonObject origin = flight["origin"].as<JsonObject>();
   JsonObject dest = flight["destination"].as<JsonObject>();
   if (!origin.isNull()) {
-    copyAirportCode(origin["code_iata"].as<const char*>(), route->origin,
+    copyRouteIcao(origin["code_icao"].as<const char*>(), route->origin,
                     sizeof(route->origin));
     if (route->origin[0] == '\0') {
-      copyAirportCode(origin["code_icao"].as<const char*>(), route->origin,
+      copyRouteIcao(origin["code_iata"].as<const char*>(), route->origin,
                       sizeof(route->origin));
     }
   }
   if (!dest.isNull()) {
-    copyAirportCode(dest["code_iata"].as<const char*>(), route->dest, sizeof(route->dest));
+    copyRouteIcao(dest["code_icao"].as<const char*>(), route->dest, sizeof(route->dest));
     if (route->dest[0] == '\0') {
-      copyAirportCode(dest["code_icao"].as<const char*>(), route->dest, sizeof(route->dest));
+      copyRouteIcao(dest["code_iata"].as<const char*>(), route->dest, sizeof(route->dest));
     }
   }
 
@@ -628,12 +662,12 @@ bool lookupFr24WithKey(const char* callsign, RouteInfo* route, const char* api_t
     }
   }
 
-  copyAirportCode(f["orig_icao"].as<const char*>(), route->origin, sizeof(route->origin));
+  copyRouteIcao(f["orig_icao"].as<const char*>(), route->origin, sizeof(route->origin));
   const char* dest_icao = f["dest_icao_actual"].as<const char*>();
   if (dest_icao == nullptr || dest_icao[0] == '\0') {
     dest_icao = f["dest_icao"].as<const char*>();
   }
-  copyAirportCode(dest_icao, route->dest, sizeof(route->dest));
+  copyRouteIcao(dest_icao, route->dest, sizeof(route->dest));
 
   const char* painted = f["painted_as"].as<const char*>();
   const char* operating = f["operating_as"].as<const char*>();
@@ -761,68 +795,6 @@ bool lookupFromApis(const char* callsign, RouteInfo* route, ApiSource* source_ou
   RouteInfo miss;
   routeClear(&miss);
   storeCache(callsign, miss, ApiSource::kNone, true);
-  return false;
-}
-
-bool lookupAirline(const char* callsign, char* out, size_t out_len, ApiSource* source_out) {
-  if (out_len > 0) {
-    out[0] = '\0';
-  }
-  if (callsign == nullptr || callsign[0] == '\0' || !isIcaoRadioCallsign(callsign)) {
-    return false;
-  }
-
-  RouteInfo cached;
-  ApiSource src = ApiSource::kNone;
-  if (cacheResolve(callsign, &cached, &src)) {
-    if (out_len > 0 && cached.airline[0] != '\0') {
-      strncpy(out, cached.airline, out_len - 1);
-      out[out_len - 1] = '\0';
-    }
-    if (source_out != nullptr) {
-      *source_out = src;
-    }
-    return cached.airline[0] != '\0';
-  }
-
-  if (apiAvailable()) {
-    ensureSeenCallsign(callsign);
-  }
-
-  if (apiAvailable() && !apiLookupAlreadyDone(callsign) &&
-      lookupFromApis(callsign, &cached, &src)) {
-    if (out_len > 0 && cached.airline[0] != '\0') {
-      strncpy(out, cached.airline, out_len - 1);
-      out[out_len - 1] = '\0';
-    }
-    if (source_out != nullptr) {
-      *source_out = src;
-    }
-    return cached.airline[0] != '\0';
-  }
-
-  if (apiAvailable()) {
-    if (source_out != nullptr) {
-      *source_out = ApiSource::kNone;
-    }
-    return false;
-  }
-
-  if (lookupPrefixFallback(callsign, &cached)) {
-    storeCache(callsign, cached, ApiSource::kPrefix, false);
-    if (out_len > 0) {
-      strncpy(out, cached.airline, out_len - 1);
-      out[out_len - 1] = '\0';
-    }
-    if (source_out != nullptr) {
-      *source_out = ApiSource::kPrefix;
-    }
-    return true;
-  }
-
-  RouteInfo miss;
-  routeClear(&miss);
-  storeCache(callsign, miss, ApiSource::kNone, false);
   return false;
 }
 

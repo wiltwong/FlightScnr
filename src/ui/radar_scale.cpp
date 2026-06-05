@@ -158,14 +158,4 @@ void formatActiveScaleTag(char* buf, size_t len) {
   formatScaleTag(buf, len, scaleActive().label_km, s_distance_in_miles);
 }
 
-void resetDistanceUnits() {
-  s_distance_in_miles = false;
-  Preferences prefs;
-  if (prefs.begin(kStoreNs, false)) {
-    prefs.remove(kDistMiKey);
-    prefs.remove(kLegacyMilesKey);
-    prefs.end();
-  }
-}
-
 }  // namespace ui::radar

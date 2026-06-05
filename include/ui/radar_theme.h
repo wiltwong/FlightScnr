@@ -84,9 +84,14 @@ constexpr uint8_t kAircraftB = 40;
 constexpr uint8_t kTagTypeR = 255;
 constexpr uint8_t kTagTypeG = 200;
 constexpr uint8_t kTagTypeB = 0;
-constexpr uint8_t kTagAltR = 90;
-constexpr uint8_t kTagAltG = 200;
-constexpr uint8_t kTagAltB = 255;
+/** Altitude tag: ascending or level (cyan). */
+constexpr uint8_t kTagAltAscendR = 0;
+constexpr uint8_t kTagAltAscendG = 255;
+constexpr uint8_t kTagAltAscendB = 255;
+/** Altitude tag: descending (magenta). */
+constexpr uint8_t kTagAltDescendR = 255;
+constexpr uint8_t kTagAltDescendG = 0;
+constexpr uint8_t kTagAltDescendB = 255;
 
 extern uint16_t kColorBackground;
 extern uint16_t kColorGrid;
@@ -95,6 +100,7 @@ extern uint16_t kColorSweepTrail;
 extern uint16_t kColorLabel;
 extern uint16_t kColorAircraft;
 extern uint16_t kColorTagType;
-extern uint16_t kColorTagAltitude;
+extern uint16_t kColorTagAltitudeAscend;
+extern uint16_t kColorTagAltitudeDescend;
 
 }  // namespace ui::radar

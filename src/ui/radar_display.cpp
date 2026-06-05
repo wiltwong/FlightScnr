@@ -9,6 +9,7 @@
 #include "hardware/display.h"
 #include "hardware/display_font.h"
 #include "services/adsb_client.h"
+#include "services/aircraft_type_lookup.h"
 #include "geo/flat_earth.h"
 #include "services/map_center.h"
 #include "ui/aircraft_symbol.h"
@@ -25,7 +26,8 @@ uint16_t kColorSweepTrail = 0x0320;
 uint16_t kColorLabel = 0xFFFF;
 uint16_t kColorAircraft = 0x001F;
 uint16_t kColorTagType = 0x5DFF;
-uint16_t kColorTagAltitude = 0xFFE0;
+uint16_t kColorTagAltitudeAscend = 0x07FF;
+uint16_t kColorTagAltitudeDescend = 0xF81F;
 
 }  // namespace radar
 
@@ -116,8 +118,22 @@ void initPalette() {
       tft.color565(radar::kAircraftR, radar::kAircraftG, radar::kAircraftB);
   radar::kColorTagType =
       tft.color565(radar::kTagTypeR, radar::kTagTypeG, radar::kTagTypeB);
-  radar::kColorTagAltitude =
-      tft.color565(radar::kTagAltR, radar::kTagAltG, radar::kTagAltB);
+  radar::kColorTagAltitudeAscend =
+      tft.color565(radar::kTagAltAscendR, radar::kTagAltAscendG, radar::kTagAltAscendB);
+  radar::kColorTagAltitudeDescend = tft.color565(radar::kTagAltDescendR,
+                                                 radar::kTagAltDescendG,
+                                                 radar::kTagAltDescendB);
+}
+
+/** Treat small negative rates as level (cyan). */
+constexpr int16_t kDescendRateThresholdFpm = -64;
+
+uint16_t altitudeTagColor(const services::adsb::Aircraft& plane) {
+  if (plane.vert_rate_fpm != services::adsb::kVertRateUnknown &&
+      plane.vert_rate_fpm < kDescendRateThresholdFpm) {
+    return radar::kColorTagAltitudeDescend;
+  }
+  return radar::kColorTagAltitudeAscend;
 }
 
 void localOffsetFromCenter(float lat, float lon, float* dx_km, float* dy_km,
@@ -190,7 +206,9 @@ int measureTagBlockWidth(const services::adsb::Aircraft& plane) {
     max_w = std::max(max_w, s_draw->textWidth(plane.callsign));
   }
   if (plane.type[0] != '\0') {
-    max_w = std::max(max_w, s_draw->textWidth(plane.type));
+    char type_label[32];
+    services::aircraft_type::formatRadarTagLabel(plane.type, type_label, sizeof(type_label));
+    max_w = std::max(max_w, s_draw->textWidth(type_label));
   }
   if (plane.alt[0] != '\0') {
     max_w = std::max(max_w, s_draw->textWidth(plane.alt));
@@ -228,13 +246,15 @@ void drawAircraftTag(int x, int y, const services::adsb::Aircraft& plane) {
   ly += line_h;
 
   if (plane.type[0] != '\0') {
+    char type_label[32];
+    services::aircraft_type::formatRadarTagLabel(plane.type, type_label, sizeof(type_label));
     s_draw->setTextColor(radar::kColorTagType, radar::kColorBackground);
-    s_draw->drawString(plane.type, anchor_x, ly);
+    s_draw->drawString(type_label, anchor_x, ly);
   }
   ly += line_h;
 
   if (plane.alt[0] != '\0') {
-    s_draw->setTextColor(radar::kColorTagAltitude, radar::kColorBackground);
+    s_draw->setTextColor(altitudeTagColor(plane), radar::kColorBackground);
     s_draw->drawString(plane.alt, anchor_x, ly);
   }
 }
@@ -840,7 +860,7 @@ void drawSweepAt(float lead_deg) {
 
 }  // namespace
 
-void radarDisplayBlitStatic() {
+static void blitStatic() {
   initPalette();
 
   if (!s_bg_ready) {
@@ -912,10 +932,6 @@ void radarDisplayRefreshSweep() {
   s_sweep_track_valid = true;
 }
 
-void radarDisplayRefreshFrame() {
-  radarDisplayRefreshSweep();
-}
-
 void radarDisplayDraw() {
   initPalette();
   initLabelMetrics();
@@ -924,7 +940,7 @@ void radarDisplayDraw() {
   s_prev_aircraft_marker_count = 0;
 
   if (rebuildBackgroundSprite() && rebuildContentLayer()) {
-    radarDisplayBlitStatic();
+    blitStatic();
     radarDisplayRefreshSweep();
     return;
   }
@@ -940,7 +956,7 @@ void radarDisplayRefreshAircraft() {
   initPalette();
 
   if (!s_bg_ready || !rebuildContentLayer()) {
-    radarDisplayBlitStatic();
+    blitStatic();
     radarDisplayRefreshSweep();
     return;
   }
@@ -976,12 +992,6 @@ void radarDisplayRefreshAircraft() {
   s_prev_sweep_dirty = sweep_dirty;
   s_sweep_track_valid = true;
   savePrevAircraftMarkers();
-}
-
-void radarDisplayRefreshRange() {
-  initPalette();
-  initLabelMetrics();
-  radarDisplayDraw();
 }
 
 }  // namespace ui

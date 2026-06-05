@@ -6,6 +6,7 @@
 #include <WiFi.h>
 
 #include "config.h"
+#include "hardware/buzzer.h"
 #include "hardware/display.h"
 #include "hardware/input.h"
 #include "services/adsb_client.h"
@@ -242,6 +243,7 @@ void handleInput() {
     const int8_t enc = inputConsumeEncoderDelta();
     if (enc != 0) {
       onRangeStep(enc);
+      hardware::buzzerClick();
     }
     return;
   }
@@ -251,27 +253,38 @@ void handleInput() {
     if (enc != 0) {
       noteSecondaryActivity();
       onFlightDetailStep(enc);
+      hardware::buzzerClick();
     }
     return;
   }
 
   if (g_screen == AppScreen::Settings) {
-    if (ui::infoScreenPage() == ui::InfoSettingsPage::Display &&
-        inputConsumeKnobTap()) {
-      noteSecondaryActivity();
-      ui::infoScreenCycleDisplayFocus();
-      showSettings();
-      return;
+    if (ui::infoScreenPage() == ui::InfoSettingsPage::Display) {
+      if (inputConsumeKnobPress()) {
+        noteSecondaryActivity();
+        hardware::buzzerClick();
+      }
+      if (inputConsumeKnobTap()) {
+        noteSecondaryActivity();
+        ui::infoScreenCycleDisplayFocus();
+        showSettings();
+        return;
+      }
     }
     const int8_t enc = inputConsumeEncoderDelta();
     if (enc != 0) {
       noteSecondaryActivity();
       ui::infoScreenHandleKnob(enc);
+      hardware::buzzerClick();
     }
     return;
   }
 
   if (g_screen == AppScreen::ClockSettings) {
+    if (inputConsumeKnobPress()) {
+      noteSecondaryActivity();
+      hardware::buzzerClick();
+    }
     if (inputConsumeKnobTap()) {
       noteSecondaryActivity();
       ui::clockSettingsCycleFocus();
@@ -282,6 +295,7 @@ void handleInput() {
     if (enc != 0) {
       noteSecondaryActivity();
       ui::clockSettingsHandleKnob(enc);
+      hardware::buzzerClick();
     }
     return;
   }
@@ -345,6 +359,8 @@ void setup() {
 
   inputInit();
   displayInit();
+  hardware::buzzerInit();
+  hardware::buzzerBootLoad();
   services::map_center::bootLoad();
   ui::radar::scaleBootLoad();
   services::adsb::trafficFilterBootLoad();
@@ -359,6 +375,7 @@ void setup() {
 }
 
 void loop() {
+  hardware::buzzerPoll();
   tickSecondaryScreenTimeout();
   tickClockDisplay();
   handleInput();

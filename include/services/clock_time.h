@@ -10,18 +10,14 @@ void bootLoad();
 /** Apply persisted timezone and start NTP (call when Wi-Fi is up). */
 void startNtp();
 
-bool timeValid();
-
 /** Local-time minute bucket for display refresh; UINT32_MAX while unsynced. */
 uint32_t localMinuteStamp();
 
 /** Fixed offset from UTC in seconds (no automatic DST). */
 int32_t timezoneOffsetSec();
-void setTimezoneOffsetSec(int32_t offset_sec);
 void stepTimezoneHours(int8_t delta);
 
 bool use24Hour();
-void setUse24Hour(bool use_24h);
 void toggleHourFormat();
 
 void formatTimezoneLabel(char* out, size_t len);

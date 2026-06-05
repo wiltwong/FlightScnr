@@ -1,8 +1,12 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 
 namespace services::adsb {
+
+/** Vertical rate unavailable (baro_rate / geom_rate not in feed). */
+constexpr int16_t kVertRateUnknown = INT16_MIN;
 
 struct Aircraft {
   float lat;
@@ -11,12 +15,14 @@ struct Aircraft {
   float track_deg;
   float gs_knots;
   char callsign[9];
-  /** Airline + route (serial log only; from API waterfall). */
+  /** Airline + route ICAO codes (from adsb.fi feed and/or route API waterfall). */
   char airline[28];
-  char route_origin[5];
-  char route_dest[5];
+  char route_origin[5];  /** Origin ICAO (e.g. KSFO). */
+  char route_dest[5];    /** Destination ICAO (e.g. KBOS). */
   char type[5];
   char alt[12];
+  /** Feet per minute from baro_rate (fallback geom_rate); kVertRateUnknown if missing. */
+  int16_t vert_rate_fpm = kVertRateUnknown;
 };
 
 constexpr size_t kMaxAircraft = 64;
@@ -38,12 +44,8 @@ void fetchConsume();
 
 bool fetchInProgress();
 
-/** Blocking fetch (legacy); prefer fetchRequest on the main loop. */
-bool fetchUpdate(double center_lat, double center_lon, float fetch_radius_km);
-
 void trafficFilterBootLoad();
 int altitudeFloorFt();
 void saveAltitudeFloorFromForm(const char* value);
-void trafficFilterWipe();
 
 }  // namespace services::adsb

@@ -153,14 +153,4 @@ bool applyRadarCenterFromForm(const char* center_str) {
   return true;
 }
 
-void wipeStoredCoordinates() {
-  Preferences prefs;
-  if (prefs.begin(kStoreNs, false)) {
-    prefs.clear();
-    prefs.end();
-  }
-  s_latitude = config::kFactoryLatitude;
-  s_longitude = config::kFactoryLongitude;
-}
-
 }  // namespace services::map_center

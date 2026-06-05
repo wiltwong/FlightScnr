@@ -6,6 +6,7 @@
 
 #include "TouchDrvCHSC5816.hpp"
 #include "config.h"
+#include "hardware/buzzer.h"
 #include "hardware/pin_config.h"
 #include "services/wifi_setup.h"
 
@@ -22,6 +23,7 @@ constexpr int8_t kEncoderQuad[16] = {
 };
 constexpr int8_t kEncoderDetentThreshold = 2;
 volatile bool s_knob_tap_pending = false;
+volatile bool s_knob_press_pending = false;
 volatile int16_t s_tap_x = -1;
 volatile int16_t s_tap_y = -1;
 volatile SwipeGesture s_swipe_pending = SwipeNone;
@@ -50,6 +52,9 @@ void IRAM_ATTR onKnobButtonIsr() {
   const unsigned long now = millis();
   portENTER_CRITICAL_ISR(&s_input_mux);
   if (down) {
+    if (!s_knob_is_down) {
+      s_knob_press_pending = true;
+    }
     s_knob_is_down = true;
     s_knob_down_ms = now;
   } else if (s_knob_is_down) {
@@ -181,6 +186,7 @@ void pollTouch() {
     s_touch_last_x = x[0];
     s_touch_last_y = y[0];
     s_touch_tracking = true;
+    hardware::buzzerClick();
   } else if (down && s_touch_tracking) {
     s_touch_last_x = x[0];
     s_touch_last_y = y[0];
@@ -226,6 +232,16 @@ bool inputConsumeKnobTap() {
   return tap;
 }
 
+bool inputConsumeKnobPress() {
+  portENTER_CRITICAL(&s_input_mux);
+  const bool press = s_knob_press_pending;
+  if (press) {
+    s_knob_press_pending = false;
+  }
+  portEXIT_CRITICAL(&s_input_mux);
+  return press;
+}
+
 bool inputConsumeScreenTap(int16_t* x, int16_t* y) {
   portENTER_CRITICAL(&s_input_mux);
   const bool tap = s_tap_x >= 0 && s_tap_y >= 0;
@@ -259,6 +275,7 @@ void inputDiscardPendingInteractions() {
   s_encoder_pending_delta = 0;
   s_encoder_accum = 0;
   s_knob_tap_pending = false;
+  s_knob_press_pending = false;
   s_swipe_pending = SwipeNone;
   s_tap_x = -1;
   s_tap_y = -1;

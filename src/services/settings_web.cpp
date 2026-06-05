@@ -13,6 +13,7 @@
 #endif
 
 #include "config.h"
+#include "hardware/buzzer.h"
 #include "services/adsb_client.h"
 #include "services/api_keys.h"
 #include "services/map_center.h"
@@ -150,6 +151,28 @@ void handleSettingsPage() {
       ui::radar::showCompassRose() ? " checked" : "");
   if (card_n > 0) {
     used += static_cast<size_t>(card_n);
+  }
+
+  const int beep_n = snprintf(
+      page + used, kSettingsPageCap - used,
+      "<div class=\"chk\"><input id=\"ui_beep\" name=\"ui_beep\" type=\"checkbox\" "
+      "value=\"T\"%s><label for=\"ui_beep\">UI beep on touch and knob</label></div>"
+      "<label for=\"beep_tone\">Beep tone</label>"
+      "<select id=\"beep_tone\" name=\"beep_tone\">"
+      "<option value=\"A\"%s>A</option>"
+      "<option value=\"B\"%s>B</option>"
+      "<option value=\"C\"%s>C</option>"
+      "<option value=\"D\"%s>D</option>"
+      "<option value=\"E\"%s>E</option>"
+      "</select>",
+      hardware::buzzerEnabled() ? " checked" : "",
+      hardware::buzzerToneLetter() == 'A' ? " selected" : "",
+      hardware::buzzerToneLetter() == 'B' ? " selected" : "",
+      hardware::buzzerToneLetter() == 'C' ? " selected" : "",
+      hardware::buzzerToneLetter() == 'D' ? " selected" : "",
+      hardware::buzzerToneLetter() == 'E' ? " selected" : "");
+  if (beep_n > 0) {
+    used += static_cast<size_t>(beep_n);
   }
 
   const int min_n = snprintf(
@@ -361,7 +384,8 @@ void handleSave() {
       s_server->arg("use_fr24").c_str(), s_server->arg("airlabs_max_calls").c_str(),
       s_server->arg("flightaware_max_usd").c_str(),
       s_server->arg("flightaware_cost_usd").c_str(), s_server->arg("fr24_max_usd").c_str(),
-      s_server->arg("fr24_cost_usd").c_str());
+      s_server->arg("fr24_cost_usd").c_str(), s_server->arg("ui_beep").c_str(),
+      s_server->arg("beep_tone").c_str());
 
   Serial.printf("Settings web save (lat/lon %s)\n", loc_ok ? "ok" : "invalid");
 

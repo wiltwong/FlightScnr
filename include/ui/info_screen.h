@@ -16,7 +16,7 @@ void infoScreenDraw();
 /** Rotate knob on display page adjusts the highlighted row. */
 void infoScreenHandleKnob(int8_t delta);
 
-/** Short knob press on display page cycles brightness ↔ units. */
+/** Short knob press on display page cycles highlighted setting row. */
 void infoScreenCycleDisplayFocus();
 
 /** Default display-page selection when opening page 2. */

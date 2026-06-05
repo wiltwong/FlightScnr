@@ -6,8 +6,8 @@
 
 #include <ArduinoJson.h>
 
+#include <cctype>
 #include <cmath>
-#include <cstdlib>
 #include <cstring>
 
 #include <Preferences.h>
@@ -18,6 +18,7 @@
 
 #include "config.h"
 #include "geo/flat_earth.h"
+#include "services/airport_lookup.h"
 #include "services/route_lookup.h"
 
 namespace services::adsb {
@@ -165,6 +166,22 @@ float pickGroundSpeed(const JsonObject& plane) {
   return 0.0f;
 }
 
+bool pickVerticalRateFpm(const JsonObject& plane, int16_t* out_fpm) {
+  float v = 0.0f;
+  if (!readJsonFloat(plane, "baro_rate", &v) && !readJsonFloat(plane, "geom_rate", &v)) {
+    return false;
+  }
+  const long rounded = lroundf(v);
+  if (rounded < INT16_MIN) {
+    *out_fpm = INT16_MIN;
+  } else if (rounded > INT16_MAX) {
+    *out_fpm = INT16_MAX;
+  } else {
+    *out_fpm = static_cast<int16_t>(rounded);
+  }
+  return true;
+}
+
 bool isOnGround(const JsonObject& plane) {
   if (!plane["alt_baro"].is<const char*>()) {
     return false;
@@ -233,6 +250,64 @@ void formatAltitudeTag(const JsonObject& plane, char* out, size_t out_len) {
   }
 }
 
+void copyIcaoCode(const char* s, char* out, size_t out_len) {
+  if (out_len == 0) {
+    return;
+  }
+  out[0] = '\0';
+  if (s == nullptr || s[0] == '\0') {
+    return;
+  }
+  size_t n = 0;
+  while (s[n] != '\0' && n + 1 < out_len && n < 4) {
+    const unsigned char c = static_cast<unsigned char>(s[n]);
+    out[n] = static_cast<char>(isupper(c) ? c : toupper(c));
+    ++n;
+  }
+  out[n] = '\0';
+}
+
+void fillRouteIcaoFromAdsb(Aircraft* ac, const JsonObject& plane) {
+  if (ac == nullptr) {
+    return;
+  }
+  ac->route_origin[0] = '\0';
+  ac->route_dest[0] = '\0';
+
+  static const char* kOriginKeys[] = {"orig_icao", "origin_icao", "dep_icao", "from"};
+  static const char* kDestKeys[] = {"dest_icao", "destination_icao", "arr_icao", "to"};
+
+  for (const char* key : kOriginKeys) {
+    if (!plane[key].is<const char*>()) {
+      continue;
+    }
+    copyIcaoCode(plane[key].as<const char*>(), ac->route_origin, sizeof(ac->route_origin));
+    char resolved[5];
+    if (services::airport::normalizeRouteCode(ac->route_origin, resolved, sizeof(resolved))) {
+      copyIcaoCode(resolved, ac->route_origin, sizeof(ac->route_origin));
+    }
+    if (ac->route_origin[0] != '\0' && ac->route_origin[3] != '\0') {
+      break;
+    }
+    ac->route_origin[0] = '\0';
+  }
+
+  for (const char* key : kDestKeys) {
+    if (!plane[key].is<const char*>()) {
+      continue;
+    }
+    copyIcaoCode(plane[key].as<const char*>(), ac->route_dest, sizeof(ac->route_dest));
+    char resolved[5];
+    if (services::airport::normalizeRouteCode(ac->route_dest, resolved, sizeof(resolved))) {
+      copyIcaoCode(resolved, ac->route_dest, sizeof(ac->route_dest));
+    }
+    if (ac->route_dest[0] != '\0' && ac->route_dest[3] != '\0') {
+      break;
+    }
+    ac->route_dest[0] = '\0';
+  }
+}
+
 void fillTagFields(Aircraft* ac, const JsonObject& plane) {
   char flight_id[sizeof(ac->callsign)];
   flight_id[0] = '\0';
@@ -248,9 +323,11 @@ void fillTagFields(Aircraft* ac, const JsonObject& plane) {
 
   copyJsonStringTrimmed(plane, "t", ac->type, sizeof(ac->type));
   formatAltitudeTag(plane, ac->alt, sizeof(ac->alt));
+  if (!pickVerticalRateFpm(plane, &ac->vert_rate_fpm)) {
+    ac->vert_rate_fpm = kVertRateUnknown;
+  }
   ac->airline[0] = '\0';
-  ac->route_origin[0] = '\0';
-  ac->route_dest[0] = '\0';
+  fillRouteIcaoFromAdsb(ac, plane);
 }
 
 }  // namespace
@@ -302,16 +379,6 @@ void saveAltitudeFloorFromForm(const char* value) {
   } else {
     Serial.println("Traffic altitude floor off");
   }
-}
-
-void trafficFilterWipe() {
-  Preferences prefs;
-  if (prefs.begin(kPrefsNamespace, false)) {
-    prefs.remove(kPrefsAltFloorKey);
-    prefs.remove(kLegacyAltFloorKey);
-    prefs.end();
-  }
-  s_altitude_floor_ft = config::kFactoryAltitudeFloorFt;
 }
 
 bool parseAircraftPayload(const String& payload, Aircraft* out, size_t* out_count) {
@@ -453,14 +520,5 @@ bool fetchReady() { return s_fetch_ready; }
 void fetchConsume() { s_fetch_ready = false; }
 
 bool fetchInProgress() { return s_fetch_requested || s_fetch_busy; }
-
-bool fetchUpdate(double center_lat, double center_lon, float fetch_radius_km) {
-  size_t n = 0;
-  if (!fetchUpdateBlocking(center_lat, center_lon, fetch_radius_km, s_aircraft, &n)) {
-    return false;
-  }
-  s_aircraft_count = n;
-  return true;
-}
 
 }  // namespace services::adsb

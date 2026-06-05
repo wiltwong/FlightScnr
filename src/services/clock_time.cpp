@@ -44,6 +44,27 @@ void applyNtpConfig() {
   configTime(s_tz_offset_sec, 0, config::kNtpServer1, config::kNtpServer2);
 }
 
+bool timeValid() {
+  const time_t now = time(nullptr);
+  return now >= kMinValidEpoch;
+}
+
+void setTimezoneOffsetSec(int32_t offset_sec) {
+  if (offset_sec < kMinOffsetSec) {
+    offset_sec = kMinOffsetSec;
+  } else if (offset_sec > kMaxOffsetSec) {
+    offset_sec = kMaxOffsetSec;
+  }
+  s_tz_offset_sec = offset_sec;
+  persistOffset();
+  applyNtpConfig();
+}
+
+void setUse24Hour(bool use_24h) {
+  s_use_24h = use_24h;
+  persistFormat();
+}
+
 }  // namespace
 
 void bootLoad() {
@@ -70,11 +91,6 @@ void startNtp() {
                   config::kNtpServer2, static_cast<int>(s_tz_offset_sec / 3600));
 }
 
-bool timeValid() {
-  const time_t now = time(nullptr);
-  return now >= kMinValidEpoch;
-}
-
 uint32_t localMinuteStamp() {
   if (!timeValid()) {
     return UINT32_MAX;
@@ -84,17 +100,6 @@ uint32_t localMinuteStamp() {
 
 int32_t timezoneOffsetSec() { return s_tz_offset_sec; }
 
-void setTimezoneOffsetSec(int32_t offset_sec) {
-  if (offset_sec < kMinOffsetSec) {
-    offset_sec = kMinOffsetSec;
-  } else if (offset_sec > kMaxOffsetSec) {
-    offset_sec = kMaxOffsetSec;
-  }
-  s_tz_offset_sec = offset_sec;
-  persistOffset();
-  applyNtpConfig();
-}
-
 void stepTimezoneHours(int8_t delta) {
   if (delta == 0) {
     return;
@@ -103,11 +108,6 @@ void stepTimezoneHours(int8_t delta) {
 }
 
 bool use24Hour() { return s_use_24h; }
-
-void setUse24Hour(bool use_24h) {
-  s_use_24h = use_24h;
-  persistFormat();
-}
 
 void toggleHourFormat() {
   setUse24Hour(!s_use_24h);

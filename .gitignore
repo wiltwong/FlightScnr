@@ -6,6 +6,7 @@
 # Build / release outputs
 release/
 *.merged.bin
+compile_commands.json
 
 # Local reference clones (not part of this project)
 _ref/
@@ -14,6 +15,7 @@ _ref/
 __pycache__/
 *.pyc
 .pytest_cache/
+tools/.cache/
 
 # OS
 .DS_Store

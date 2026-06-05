@@ -686,10 +686,6 @@ uint32_t fr24SpentUsdMicro() {
   return sumUsage(s_fr24.used, s_fr24.key_count);
 }
 
-const char* airLabsKey() { return airLabsKeyAt(0); }
-const char* flightAwareKey() { return flightAwareKeyAt(0); }
-const char* fr24Key() { return fr24KeyAt(0); }
-
 void maskedAirLabs(char* out, size_t len) { maskedPreviewProvider(s_airlabs, out, len); }
 void maskedFlightAware(char* out, size_t len) { maskedPreviewProvider(s_flightaware, out, len); }
 void maskedFr24(char* out, size_t len) { maskedPreviewProvider(s_fr24, out, len); }

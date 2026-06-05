@@ -32,7 +32,6 @@ class PlaneGfx {
   void drawLine(int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint16_t color);
   void drawWideLine(int16_t x0, int16_t y0, int16_t x1, int16_t y1, float half_width,
                     uint16_t color);
-  void fillSmoothCircle(int16_t x, int16_t y, int16_t r, uint16_t color);
 
   uint16_t color565(uint8_t r, uint8_t g, uint8_t b) const;
 

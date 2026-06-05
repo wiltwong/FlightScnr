@@ -17,6 +17,9 @@ int8_t inputConsumeEncoderDelta();
 /** True after knob short-press (no touch coordinates). */
 bool inputConsumeKnobTap();
 
+/** True once when the knob button is first pressed down. */
+bool inputConsumeKnobPress();
+
 /**
  * True after a screen tap (not a swipe). Optional touch position in display coords.
  */

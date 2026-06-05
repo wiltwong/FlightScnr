@@ -38,5 +38,4 @@ void displayInit() {
   hardware::displayApplyBrightness();
 
   tft.setTextWrap(false);
-  displayFontInit();
 }

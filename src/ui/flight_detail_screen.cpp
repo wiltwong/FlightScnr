@@ -1,6 +1,7 @@
 #include "ui/flight_detail_screen.h"
 
-#include <climits>
+#include <Arduino.h>
+
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -9,6 +10,10 @@
 #include "hardware/display.h"
 #include "hardware/display_font.h"
 #include "services/adsb_client.h"
+#include "services/aircraft_type_lookup.h"
+#include "services/airport_lookup.h"
+#include "data/icao_types_lookup.h"
+#include "data/airports_lookup.h"
 #include "geo/flat_earth.h"
 #include "services/map_center.h"
 #include "ui/radar_scale.h"
@@ -24,6 +29,7 @@ constexpr int kLineGap = 3;
 constexpr int kSectionGap = 6;
 constexpr int kFooterGap = 6;
 constexpr int kTapPickRadiusPx = 36;
+constexpr size_t kRouteLabelLen = data::airports::kMaxNameLen + 6;  // "ICAO, " + name
 
 const int kCenterX = config::kDisplayWidth / 2;
 const int kCenterY = config::kDisplayHeight / 2;
@@ -78,15 +84,148 @@ void fitLineToWidth(char* text, size_t len, UiTextStyle style, int max_width_px)
   if (tft.textWidth(text) <= max_width_px) {
     return;
   }
-  const size_t raw_len = strlen(text);
+  char original[96];
+  strncpy(original, text, sizeof(original) - 1);
+  original[sizeof(original) - 1] = '\0';
+  const size_t raw_len = strlen(original);
   for (size_t n = raw_len; n > 0; --n) {
-    snprintf(text, len, "%.*s…", static_cast<int>(n), text);
+    snprintf(text, len, "%.*s…", static_cast<int>(n), original);
     if (tft.textWidth(text) <= max_width_px) {
       return;
     }
   }
   strncpy(text, "…", len);
   text[len - 1] = '\0';
+}
+
+bool nextWrappedLine(const char** cursor, char* line, size_t line_len, UiTextStyle style,
+                     int max_width_px, bool last_line) {
+  if (cursor == nullptr || line_len == 0) {
+    return false;
+  }
+  const char* p = *cursor;
+  while (*p == ' ') {
+    ++p;
+  }
+  if (*p == '\0') {
+    return false;
+  }
+
+  line[0] = '\0';
+  displayFontApply(tft, style);
+
+  if (last_line) {
+    strncpy(line, p, line_len - 1);
+    line[line_len - 1] = '\0';
+    fitLineToWidth(line, line_len, style, max_width_px);
+    *cursor = p + strlen(p);
+    return line[0] != '\0';
+  }
+
+  while (*p != '\0') {
+    const char* word_start = p;
+    while (*p != '\0' && *p != ' ') {
+      ++p;
+    }
+    const size_t word_len = static_cast<size_t>(p - word_start);
+
+    char trial[64];
+    if (line[0] == '\0') {
+      snprintf(trial, sizeof(trial), "%.*s", static_cast<int>(word_len), word_start);
+    } else {
+      snprintf(trial, sizeof(trial), "%s %.*s", line,
+               static_cast<int>(word_len), word_start);
+    }
+
+    if (tft.textWidth(trial) <= max_width_px) {
+      strncpy(line, trial, line_len - 1);
+      line[line_len - 1] = '\0';
+      while (*p == ' ') {
+        ++p;
+      }
+      continue;
+    }
+
+    if (line[0] != '\0') {
+      *cursor = word_start;
+      return true;
+    }
+
+    for (size_t n = word_len; n > 0; --n) {
+      snprintf(trial, sizeof(trial), "%.*s", static_cast<int>(n), word_start);
+      if (tft.textWidth(trial) <= max_width_px) {
+        strncpy(line, trial, line_len - 1);
+        line[line_len - 1] = '\0';
+        *cursor = word_start + n;
+        return true;
+      }
+    }
+
+    line[0] = word_start[0];
+    line[1] = '\0';
+    *cursor = word_start + 1;
+    return true;
+  }
+
+  *cursor = p;
+  return line[0] != '\0';
+}
+
+int wrappedLineCount(const char* text, UiTextStyle style, int start_y, int line_h,
+                     int max_lines) {
+  if (text == nullptr || text[0] == '\0') {
+    return 1;
+  }
+
+  const char* cursor = text;
+  char line[64];
+  int count = 0;
+  int y = start_y;
+
+  while (count < max_lines) {
+    const int max_w = circleHalfWidthAtRow(y, line_h) * 2;
+    if (max_w <= 0) {
+      break;
+    }
+    const bool last_line = count + 1 >= max_lines;
+    if (!nextWrappedLine(&cursor, line, sizeof(line), style, max_w, last_line)) {
+      break;
+    }
+    ++count;
+    y += line_h + kLineGap;
+    if (*cursor == '\0') {
+      break;
+    }
+  }
+
+  return count > 0 ? count : 1;
+}
+
+void drawCenterWrapped(const char* text, int* y, UiTextStyle style, uint16_t fg, uint16_t bg,
+                       int max_lines) {
+  displayFontApply(tft, style);
+  const int line_h = displayFontHeight(tft, style);
+  const char* cursor = text;
+  char line[64];
+
+  tft.setTextDatum(TextDatum::TopCenter);
+  tft.setTextColor(fg, bg);
+
+  for (int i = 0; i < max_lines; ++i) {
+    const int max_w = circleHalfWidthAtRow(*y, line_h) * 2;
+    if (max_w <= 0) {
+      break;
+    }
+    const bool last_line = i + 1 >= max_lines;
+    if (!nextWrappedLine(&cursor, line, sizeof(line), style, max_w, last_line)) {
+      break;
+    }
+    tft.drawString(line, kCenterX, *y);
+    *y += line_h + kLineGap;
+    if (*cursor == '\0') {
+      break;
+    }
+  }
 }
 
 void drawCenterLine(const char* text, int* y, UiTextStyle style, uint16_t fg,
@@ -133,17 +272,144 @@ const services::adsb::Aircraft* selectedAircraft() {
   return &services::adsb::aircraftList()[s_order[s_sel]];
 }
 
-void formatRouteLine(const services::adsb::Aircraft& ac, char* out, size_t out_len) {
-  if (ac.route_origin[0] != '\0' && ac.route_dest[0] != '\0') {
-    snprintf(out, out_len, "%s > %s", ac.route_origin, ac.route_dest);
-  } else if (ac.route_origin[0] != '\0') {
-    snprintf(out, out_len, "%s > ?", ac.route_origin);
-  } else if (ac.route_dest[0] != '\0') {
-    snprintf(out, out_len, "? > %s", ac.route_dest);
-  } else {
-    strncpy(out, "Route unknown", out_len - 1);
-    out[out_len - 1] = '\0';
+bool iataForIcao(const char* icao, char* iata_out) {
+  if (icao == nullptr || icao[3] == '\0' || iata_out == nullptr) {
+    return false;
   }
+  for (size_t i = 0; i < data::airports::kIataCount; ++i) {
+    data::airports::IataEntry entry;
+    memcpy_P(&entry, &data::airports::kIataToIcao[i], sizeof(entry));
+    if (entry.icao[0] == icao[0] && entry.icao[1] == icao[1] &&
+        entry.icao[2] == icao[2] && entry.icao[3] == icao[3]) {
+      iata_out[0] = entry.iata[0];
+      iata_out[1] = entry.iata[1];
+      iata_out[2] = entry.iata[2];
+      iata_out[3] = '\0';
+      return iata_out[0] != '\0';
+    }
+  }
+  return false;
+}
+
+void routeDisplayCode(const char* route_code, char* out, size_t out_len) {
+  if (out_len == 0) {
+    return;
+  }
+  out[0] = '\0';
+  if (route_code == nullptr || route_code[0] == '\0') {
+    return;
+  }
+
+  char icao[5];
+  if (services::airport::normalizeRouteCode(route_code, icao, sizeof(icao))) {
+    char iata[4];
+    if (iataForIcao(icao, iata)) {
+      strncpy(out, iata, out_len - 1);
+    } else {
+      strncpy(out, icao, out_len - 1);
+    }
+    out[out_len - 1] = '\0';
+    return;
+  }
+
+  strncpy(out, route_code, out_len - 1);
+  out[out_len - 1] = '\0';
+}
+
+void formatRouteEndpointLabel(const char* route_code, char* out, size_t out_len) {
+  if (out_len > 0) {
+    out[0] = '\0';
+  }
+  if (route_code == nullptr || route_code[0] == '\0') {
+    return;
+  }
+
+  char code[5];
+  routeDisplayCode(route_code, code, sizeof(code));
+
+  char name[data::airports::kMaxNameLen + 1];
+  if (services::airport::lookupName(route_code, name, sizeof(name))) {
+    snprintf(out, out_len, "%s, %s", code, name);
+    return;
+  }
+
+  strncpy(out, code, out_len - 1);
+  out[out_len - 1] = '\0';
+}
+
+void resolveRouteLabels(const services::adsb::Aircraft& ac, char* origin, size_t origin_len,
+                        char* dest, size_t dest_len) {
+  if (origin_len > 0) {
+    origin[0] = '\0';
+  }
+  if (dest_len > 0) {
+    dest[0] = '\0';
+  }
+  if (ac.route_origin[0] != '\0') {
+    formatRouteEndpointLabel(ac.route_origin, origin, origin_len);
+  }
+  if (ac.route_dest[0] != '\0') {
+    formatRouteEndpointLabel(ac.route_dest, dest, dest_len);
+  }
+}
+
+int routeDisplayLines(const char* origin, const char* dest, int row_y, int row_h) {
+  if ((origin == nullptr || origin[0] == '\0') &&
+      (dest == nullptr || dest[0] == '\0')) {
+    return 1;
+  }
+  if (origin == nullptr || origin[0] == '\0' || dest == nullptr || dest[0] == '\0') {
+    return 1;
+  }
+
+  char one_line[(kRouteLabelLen + 1) * 2 + 8];
+  snprintf(one_line, sizeof(one_line), "%s > %s", origin, dest);
+
+  displayFontApply(tft, displayFontBody());
+  const int max_w = circleHalfWidthAtRow(row_y, row_h) * 2;
+  if (max_w <= 0) {
+    return 2;
+  }
+  return tft.textWidth(one_line) <= max_w ? 1 : 2;
+}
+
+void drawRouteLabels(const char* origin, const char* dest, int* y, uint16_t fg, uint16_t bg) {
+  const UiTextStyle style = displayFontBody();
+  displayFontApply(tft, style);
+  const int row_h = displayFontHeight(tft, style);
+
+  if ((origin == nullptr || origin[0] == '\0') &&
+      (dest == nullptr || dest[0] == '\0')) {
+    drawCenterLine("Route unknown", y, style, fg, bg);
+    return;
+  }
+
+  if (origin == nullptr || origin[0] == '\0') {
+    char line[kRouteLabelLen + 8];
+    snprintf(line, sizeof(line), "? > %s", dest);
+    drawCenterLine(line, y, style, fg, bg);
+    return;
+  }
+
+  if (dest == nullptr || dest[0] == '\0') {
+    char line[kRouteLabelLen + 8];
+    snprintf(line, sizeof(line), "%s > ?", origin);
+    drawCenterLine(line, y, style, fg, bg);
+    return;
+  }
+
+  char one_line[(kRouteLabelLen + 1) * 2 + 8];
+  snprintf(one_line, sizeof(one_line), "%s > %s", origin, dest);
+  const int max_w = circleHalfWidthAtRow(*y, row_h) * 2;
+  if (max_w > 0 && tft.textWidth(one_line) <= max_w) {
+    drawCenterLine(one_line, y, style, fg, bg);
+    return;
+  }
+
+  drawCenterLine(origin, y, style, fg, bg);
+  char dest_line[kRouteLabelLen + 8];
+  snprintf(dest_line, sizeof(dest_line), "> %s", dest);
+  drawCenterLine(dest_line, y, style, fg, bg);
 }
 
 void formatAltLine(const services::adsb::Aircraft& ac, char* out, size_t out_len) {
@@ -164,14 +430,19 @@ void formatSpeedLine(const services::adsb::Aircraft& ac, char* out, size_t out_l
   }
 }
 
+constexpr int kTypeMaxLines = 4;
+
 void formatTypeLine(const services::adsb::Aircraft& ac, char* out, size_t out_len) {
-  if (ac.type[0] != '\0') {
-    strncpy(out, ac.type, out_len - 1);
-    out[out_len - 1] = '\0';
-  } else {
+  if (ac.type[0] == '\0') {
     strncpy(out, "—", out_len - 1);
     out[out_len - 1] = '\0';
+    return;
   }
+  if (services::aircraft_type::lookupDescription(ac.type, out, out_len)) {
+    return;
+  }
+  strncpy(out, ac.type, out_len - 1);
+  out[out_len - 1] = '\0';
 }
 
 }  // namespace
@@ -232,10 +503,6 @@ bool flightDetailCycle(int delta) {
   return true;
 }
 
-bool flightDetailHasSelection() { return s_order_count > 0; }
-
-size_t flightDetailCount() { return s_order_count; }
-
 void flightDetailDraw() {
   const uint16_t bg = tft.color565(radar::kBgR, radar::kBgG, radar::kBgB);
   const uint16_t fg = tft.color565(255, 255, 255);
@@ -262,8 +529,9 @@ void flightDetailDraw() {
 
   char callsign[16];
   char airline[32];
-  char route[20];
-  char type[16];
+  char route_origin[kRouteLabelLen + 1];
+  char route_dest[kRouteLabelLen + 1];
+  char type[data::icao_types::kMaxNameLen + 1];
   char alt[20];
   char speed[20];
   char index_line[16];
@@ -282,7 +550,8 @@ void flightDetailDraw() {
     strncpy(airline, "Airline unknown", sizeof(airline) - 1);
   }
 
-  formatRouteLine(*ac, route, sizeof(route));
+  resolveRouteLabels(*ac, route_origin, sizeof(route_origin), route_dest,
+                     sizeof(route_dest));
   formatTypeLine(*ac, type, sizeof(type));
   formatAltLine(*ac, alt, sizeof(alt));
   formatSpeedLine(*ac, speed, sizeof(speed));
@@ -293,11 +562,41 @@ void flightDetailDraw() {
   const int callsign_h = displayFontHeight(tft, displayFontBody());
   const int body_h = displayFontHeight(tft, displayFontBody());
   const int detail_h = displayFontHeight(tft, displayFontDetail());
-  const int block_h = title_h + kTitleGap + callsign_h + kLineGap + body_h + kSectionGap +
-                      body_h + kLineGap + detail_h + kLineGap + detail_h + kLineGap +
-                      detail_h + kFooterGap + detail_h + kLineGap + detail_h;
 
+  const int footer_h = kLineGap + detail_h + kLineGap + detail_h + kFooterGap + detail_h +
+                       kLineGap + detail_h;
+
+  const int route_block_est = body_h + kLineGap;
+  const int pre_type_h_est = title_h + kTitleGap + callsign_h + kLineGap + body_h +
+                             kSectionGap + route_block_est;
+
+  int block_h = pre_type_h_est + footer_h + detail_h;
   int y = kCenterY - block_h / 2;
+  if (y < kBezelInsetPx) {
+    y = kBezelInsetPx;
+  }
+
+  const int route_y = y + title_h + kTitleGap + callsign_h + kLineGap + body_h + kSectionGap;
+  const int route_lines =
+      routeDisplayLines(route_origin, route_dest, route_y, body_h);
+  const int route_block_h = route_lines * (body_h + kLineGap);
+
+  const int pre_type_h_adj = title_h + kTitleGap + callsign_h + kLineGap + body_h +
+                             kSectionGap + route_block_h;
+  block_h = pre_type_h_adj + footer_h + detail_h;
+  y = kCenterY - block_h / 2;
+  if (y < kBezelInsetPx) {
+    y = kBezelInsetPx;
+  }
+
+  const int type_y = y + pre_type_h_adj;
+  const int type_lines =
+      wrappedLineCount(type, displayFontDetail(), type_y, detail_h, kTypeMaxLines);
+  const int type_block_h =
+      type_lines * detail_h + (type_lines > 1 ? (type_lines - 1) * kLineGap : 0);
+
+  block_h = pre_type_h_adj + type_block_h + footer_h;
+  y = kCenterY - block_h / 2;
   if (y < kBezelInsetPx) {
     y = kBezelInsetPx;
   }
@@ -311,8 +610,8 @@ void flightDetailDraw() {
   drawCenterLine(callsign, &y, displayFontBody(), fg, bg);
   drawCenterLine(airline, &y, displayFontBody(), label_fg, bg);
   y += kSectionGap - kLineGap;
-  drawCenterLine(route, &y, displayFontBody(), route_fg, bg);
-  drawCenterLine(type, &y, displayFontDetail(), label_fg, bg);
+  drawRouteLabels(route_origin, route_dest, &y, route_fg, bg);
+  drawCenterWrapped(type, &y, displayFontDetail(), label_fg, bg, kTypeMaxLines);
   drawCenterLine(alt, &y, displayFontDetail(), fg, bg);
   drawCenterLine(speed, &y, displayFontDetail(), fg, bg);
 

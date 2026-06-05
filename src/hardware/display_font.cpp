@@ -64,10 +64,6 @@ int absDiff(int a, int b) { return std::abs(a - b); }
 
 
 
-bool displayFontInit() { return true; }
-
-
-
 UiTextStyle displayFontTitle() { return UiTextStyle{&MontserratBold18pt7b}; }
 
 
@@ -97,6 +93,8 @@ UiTextStyle displayFontClockTime() { return UiTextStyle{&MontserratBold36pt7b}; 
 
 
 UiTextStyle displayFontClockAmPm() { return UiTextStyle{&MontserratBold24pt7b}; }
+
+UiTextStyle displayFontClockDate() { return UiTextStyle{&MontserratBold18pt7b}; }
 
 
 

@@ -17,6 +17,8 @@ constexpr int kBezelInsetPx = 10;
 constexpr int kTextPadPx = 6;
 constexpr int kLineGap = 4;
 constexpr int kSectionGap = 8;
+/** Extra space between the time row and the date line. */
+constexpr int kTimeDateGap = 14;
 /** Extra space between UTC label and swipe hints. */
 constexpr int kHintsTopGap = 22;
 
@@ -47,9 +49,12 @@ void fitLineToWidth(char* text, size_t len, UiTextStyle style, int max_width_px)
   if (tft.textWidth(text) <= max_width_px) {
     return;
   }
-  const size_t raw_len = strlen(text);
+  char original[48];
+  strncpy(original, text, sizeof(original) - 1);
+  original[sizeof(original) - 1] = '\0';
+  const size_t raw_len = strlen(original);
   for (size_t n = raw_len; n > 0; --n) {
-    snprintf(text, len, "%.*s…", static_cast<int>(n), text);
+    snprintf(text, len, "%.*s…", static_cast<int>(n), original);
     if (tft.textWidth(text) <= max_width_px) {
       return;
     }
@@ -85,24 +90,23 @@ void drawTimeWithAmPm(int* y, const char* time_line, const char* ampm_line, uint
 
   constexpr int kAmPmGap = 8;
   int ampm_w = 0;
-  int ampm_h = 0;
   if (ampm_line[0] != '\0') {
     ampm_w = displayFontWidth(tft, ampm_style, ampm_line);
-    ampm_h = displayFontHeight(tft, ampm_style);
   }
 
   const int total_w = time_w + (ampm_w > 0 ? kAmPmGap + ampm_w : 0);
   const int x = kCenterX - total_w / 2;
+  const int bottom_y = *y + time_h;
 
+  tft.setTextDatum(TextDatum::BottomLeft);
   displayFontApply(tft, time_style);
-  tft.setTextDatum(TextDatum::TopLeft);
   tft.setTextColor(time_fg, bg);
-  tft.drawString(time_line, x, *y);
+  tft.drawString(time_line, x, bottom_y);
 
   if (ampm_line[0] != '\0') {
     displayFontApply(tft, ampm_style);
     tft.setTextColor(ampm_fg, bg);
-    tft.drawString(ampm_line, x + time_w + kAmPmGap, *y + time_h - ampm_h);
+    tft.drawString(ampm_line, x + time_w + kAmPmGap, bottom_y);
   }
 
   *y += time_h + kLineGap;
@@ -127,11 +131,11 @@ void clockScreenDraw() {
   services::clock::formatTimezoneLabel(tz_line, sizeof(tz_line));
 
   const int time_h = displayFontHeight(tft, displayFontClockTime());
-  const int date_h = displayFontHeight(tft, displayFontBody()) + kLineGap;
+  const int date_h = displayFontHeight(tft, displayFontClockDate()) + kLineGap;
   const int tz_h = displayFontHeight(tft, displayFontDetail()) + kLineGap;
   const int hints_h =
       displayFontHeight(tft, displayFontDetail()) * 2 + kLineGap + kHintsTopGap;
-  const int block_h = time_h + date_h + tz_h + hints_h;
+  const int block_h = time_h + kTimeDateGap + date_h + tz_h + hints_h;
 
   tft.fillScreen(bg);
 
@@ -142,7 +146,8 @@ void clockScreenDraw() {
 
   drawTimeWithAmPm(&y, time_line, ampm_line, accent_fg, ampm_fg, bg);
 
-  drawCenterLine(date_line, &y, displayFontBody(), fg, bg);
+  y += kTimeDateGap;
+  drawCenterLine(date_line, &y, displayFontClockDate(), fg, bg);
   y += kSectionGap - kLineGap;
   drawCenterLine(tz_line, &y, displayFontDetail(), hint_fg, bg);
   y += kHintsTopGap;

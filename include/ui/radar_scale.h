@@ -43,6 +43,5 @@ void saveCompassRoseFromForm(const char* checkbox_value);
 
 void formatScaleTag(char* buf, size_t len, float label_km, bool use_miles);
 void formatActiveScaleTag(char* buf, size_t len);
-void resetDistanceUnits();
 
 }  // namespace ui::radar

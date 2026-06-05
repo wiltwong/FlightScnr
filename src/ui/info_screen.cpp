@@ -7,6 +7,7 @@
 #include <cstring>
 
 #include "config.h"
+#include "hardware/buzzer.h"
 #include "hardware/display.h"
 #include "hardware/display_brightness.h"
 #include "hardware/display_font.h"
@@ -31,7 +32,7 @@ const int kCircleRadius = kCenterX - kBezelInsetPx;
 
 ui::InfoSettingsPage s_page = ui::InfoSettingsPage::Main;
 
-enum class DisplayAdjustRow : uint8_t { Brightness, Units, Compass };
+enum class DisplayAdjustRow : uint8_t { Brightness, Units, Compass, BeepOn, BeepTone };
 
 DisplayAdjustRow s_display_focus = DisplayAdjustRow::Brightness;
 
@@ -134,13 +135,19 @@ void buildMainStrings(char* ip_line, size_t ip_len, char* wifi_line, size_t wifi
 }
 
 void buildDisplayStrings(char* bright_line, size_t bright_len, char* units_line,
-                         size_t units_len, char* compass_line, size_t compass_len) {
+                         size_t units_len, char* compass_line, size_t compass_len,
+                         char* beep_line, size_t beep_len, char* beep_tone_line,
+                         size_t beep_tone_len) {
   snprintf(bright_line, bright_len, "Brightness: %u%%",
            static_cast<unsigned>(hardware::displayBrightnessPercent()));
   snprintf(units_line, units_len, "Units: %s",
            ui::radar::distanceInMiles() ? "miles" : "km");
   snprintf(compass_line, compass_len, "Compass Rose: %s",
            ui::radar::showCompassRose() ? "on" : "off");
+  snprintf(beep_line, beep_len, "UI Beep: %s",
+           hardware::buzzerEnabled() ? "on" : "off");
+  snprintf(beep_tone_line, beep_tone_len, "Beep Tone: %c",
+           hardware::buzzerToneLetter());
 }
 
 void drawMainPage(uint16_t bg, uint16_t fg, uint16_t label_fg, uint16_t hint_fg) {
@@ -198,8 +205,11 @@ void drawDisplayPage(uint16_t bg, uint16_t fg, uint16_t label_fg, uint16_t hint_
   char bright_line[32];
   char units_line[24];
   char compass_line[28];
+  char beep_line[24];
+  char beep_tone_line[28];
   buildDisplayStrings(bright_line, sizeof(bright_line), units_line, sizeof(units_line),
-                      compass_line, sizeof(compass_line));
+                      compass_line, sizeof(compass_line), beep_line, sizeof(beep_line),
+                      beep_tone_line, sizeof(beep_tone_line));
 
   const uint16_t active_fg = tft.color565(ui::radar::kSweepR, ui::radar::kSweepG,
                                           ui::radar::kSweepB);
@@ -209,12 +219,18 @@ void drawDisplayPage(uint16_t bg, uint16_t fg, uint16_t label_fg, uint16_t hint_
       (s_display_focus == DisplayAdjustRow::Units) ? active_fg : label_fg;
   const uint16_t compass_fg =
       (s_display_focus == DisplayAdjustRow::Compass) ? active_fg : label_fg;
+  const uint16_t beep_fg =
+      (s_display_focus == DisplayAdjustRow::BeepOn) ? active_fg : label_fg;
+  const uint16_t beep_tone_fg =
+      (s_display_focus == DisplayAdjustRow::BeepTone) ? active_fg : label_fg;
 
   const int title_h = displayFontHeight(tft, displayFontTitle());
   const InfoLine option_lines[] = {
       {bright_line, displayFontBody(), bright_fg},
       {units_line, displayFontBody(), units_fg},
       {compass_line, displayFontBody(), compass_fg},
+      {beep_line, displayFontBody(), beep_fg},
+      {beep_tone_line, displayFontBody(), beep_tone_fg},
   };
   const InfoLine hint_lines[] = {
       {"Knob press: change item", displayFontDetail(), hint_fg},
@@ -265,6 +281,12 @@ void infoScreenCycleDisplayFocus() {
     case DisplayAdjustRow::Units:
       s_display_focus = DisplayAdjustRow::Compass;
       break;
+    case DisplayAdjustRow::Compass:
+      s_display_focus = DisplayAdjustRow::BeepOn;
+      break;
+    case DisplayAdjustRow::BeepOn:
+      s_display_focus = DisplayAdjustRow::BeepTone;
+      break;
     default:
       s_display_focus = DisplayAdjustRow::Brightness;
       break;
@@ -306,6 +328,12 @@ void infoScreenHandleKnob(int8_t delta) {
       break;
     case DisplayAdjustRow::Compass:
       ui::radar::toggleCompassRose();
+      break;
+    case DisplayAdjustRow::BeepOn:
+      hardware::buzzerSetEnabled(!hardware::buzzerEnabled());
+      break;
+    case DisplayAdjustRow::BeepTone:
+      hardware::buzzerToneStep(delta);
       break;
   }
   infoScreenDraw();

@@ -126,16 +126,6 @@ void PlaneGfx::drawWideLine(int16_t x0, int16_t y0, int16_t x1, int16_t y1,
   }
 }
 
-void PlaneGfx::fillSmoothCircle(int16_t x, int16_t y, int16_t r, uint16_t color) {
-  if (gfx_ == nullptr || r <= 0) {
-    return;
-  }
-  gfx_->fillCircle(x, y, r, color);
-  if (r >= 2) {
-    gfx_->drawCircle(x, y, r, color);
-  }
-}
-
 uint16_t PlaneGfx::color565(uint8_t r, uint8_t g, uint8_t b) const {
   if (gfx_ != nullptr) {
     return gfx_->color565(r, g, b);

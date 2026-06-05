@@ -20,7 +20,4 @@ void flightDetailSelectAtScreen(int16_t x, int16_t y);
 /** Cycle selection (+1 / -1). Returns false if no aircraft. */
 bool flightDetailCycle(int delta);
 
-bool flightDetailHasSelection();
-size_t flightDetailCount();
-
 }  // namespace ui
