@@ -1,16 +1,15 @@
 name: Deploy WebFlasher
 
+# Redeploy installer UI only (firmware is bundled by the Release workflow).
 on:
   push:
     branches:
       - master
       - main
+    paths:
+      - "docs/**"
+      - ".github/workflows/pages.yml"
   workflow_dispatch:
-  workflow_run:
-    workflows:
-      - Release
-    types:
-      - completed
 
 permissions:
   contents: read
@@ -23,9 +22,6 @@ concurrency:
 
 jobs:
   deploy:
-    if: >-
-      github.event_name != 'workflow_run' ||
-      github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
@@ -36,29 +32,24 @@ jobs:
 
       - name: Download latest release firmware
         env:
-          GH_TOKEN: ${{ github.token }}
           MERGED_ASSET: FlightScnr-tencoder-pro-merged.bin
         run: |
           set -euo pipefail
           mkdir -p docs/firmware
-          if gh release download --repo "${GITHUB_REPOSITORY}" --latest \
-            --pattern "${MERGED_ASSET}" \
-            --dir docs/firmware \
-            --clobber; then
-            export FIRMWARE_SIZE="$(stat -c%s "docs/firmware/${MERGED_ASSET}")"
-            export RELEASE_NAME="$(gh release view --repo "${GITHUB_REPOSITORY}" --json name -q .name)"
-            export RELEASE_TAG="$(gh release view --repo "${GITHUB_REPOSITORY}" --json tagName -q .tagName)"
-            jq -n \
-              --arg name "${RELEASE_NAME}" \
-              --arg version "${RELEASE_TAG}" \
-              --arg path "${MERGED_ASSET}" \
-              --argjson size "${FIRMWARE_SIZE}" \
-              '{name: $name, version: $version, size: $size, builds: [{chipFamily: "ESP32-S3", parts: [{path: $path, offset: 0}]}]}' \
-              > docs/firmware/manifest.json
-            echo "Bundled ${RELEASE_NAME} (${FIRMWARE_SIZE} bytes)"
-          else
-            echo "No release asset yet; installer will deploy without bundled firmware."
-          fi
+          URL="https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/${MERGED_ASSET}"
+          curl -fsSL -L -o "docs/firmware/${MERGED_ASSET}" "${URL}"
+          FIRMWARE_SIZE="$(stat -c%s "docs/firmware/${MERGED_ASSET}")"
+          RELEASE_JSON="$(curl -fsSL "https://api.github.com/repos/${GITHUB_REPOSITORY}/releases/latest")"
+          RELEASE_NAME="$(echo "${RELEASE_JSON}" | jq -r .name)"
+          RELEASE_TAG="$(echo "${RELEASE_JSON}" | jq -r .tag_name)"
+          jq -n \
+            --arg name "${RELEASE_NAME}" \
+            --arg version "${RELEASE_TAG}" \
+            --arg path "${MERGED_ASSET}" \
+            --argjson size "${FIRMWARE_SIZE}" \
+            '{name: $name, version: $version, size: $size, builds: [{chipFamily: "ESP32-S3", parts: [{path: $path, offset: 0}]}]}' \
+            > docs/firmware/manifest.json
+          echo "Bundled ${RELEASE_NAME} (${FIRMWARE_SIZE} bytes)"
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

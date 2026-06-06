@@ -148,7 +148,7 @@ The WebFlasher **Install** button always pulls the latest release from GitHub.
 2. Open WebFlasher, click **Connect**, then **Install** (or upload a downloaded `.bin`).
 3. If needed, hold **BOOT** while connecting.
 
-WebFlasher lives in the **`docs/`** folder. **Settings → Pages → Build and deployment → Source** must be **GitHub Actions** (runs the *Deploy WebFlasher* workflow) or **Deploy from a branch → `master` → `/docs`**. If Source is set to the repo root (`/`), GitHub renders this README as the site instead of the installer.
+WebFlasher lives in the **`docs/`** folder. **Settings → Pages → Build and deployment → Source** must be **GitHub Actions**. Each **Release** workflow run builds firmware, writes `docs/firmware/manifest.json`, and deploys the installer. To redeploy UI-only changes without a new release, run **Actions → Deploy WebFlasher**.
 
 ## Configuration
 
