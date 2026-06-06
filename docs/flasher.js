@@ -1,8 +1,8 @@
 import { ESPLoader, Transport } from "./vendor/esptool-js.bundle.js";
 
-const REPO = "yashmulgaonkar/FlightScnr";
 const MERGED_ASSET = "FlightScnr-tencoder-pro-merged.bin";
-const RELEASES_API = `https://api.github.com/repos/${REPO}/releases/latest`;
+const FIRMWARE_BASE = "./firmware";
+const MANIFEST_URL = `${FIRMWARE_BASE}/manifest.json`;
 
 const els = {
   connectBtn: document.getElementById("connect-btn"),
@@ -61,38 +61,36 @@ function clearProgress() {
   els.progressLabel.textContent = "";
 }
 
-async function fetchLatestRelease() {
-  const resp = await fetch(RELEASES_API);
+async function loadFirmwareManifest() {
+  const resp = await fetch(MANIFEST_URL, { cache: "no-store" });
   if (!resp.ok) {
-    throw new Error(`Release lookup failed (HTTP ${resp.status})`);
+    throw new Error(`Manifest unavailable (HTTP ${resp.status})`);
   }
   return resp.json();
 }
 
 async function loadLatestReleaseMeta() {
   try {
-    const data = await fetchLatestRelease();
-    const asset = (data.assets || []).find((a) => a.name === MERGED_ASSET);
-    const sizeMb = asset ? (asset.size / (1024 * 1024)).toFixed(2) : "?";
-    els.releaseMeta.textContent = `Latest: ${data.name || data.tag_name} (${sizeMb} MB)`;
+    const manifest = await loadFirmwareManifest();
+    const sizeMb = manifest.size
+      ? (manifest.size / (1024 * 1024)).toFixed(2)
+      : "?";
+    els.releaseMeta.textContent = `Latest: ${manifest.name || manifest.version} (${sizeMb} MB)`;
   } catch (err) {
-    els.releaseMeta.textContent = "Latest release info unavailable (you can still upload a .bin file).";
+    els.releaseMeta.textContent =
+      "Firmware not bundled yet (run Release workflow, then redeploy Pages). You can still upload a .bin file.";
     console.warn(err);
   }
 }
 
 async function fetchLatestMergedFirmware() {
-  const release = await fetchLatestRelease();
-  const asset = (release.assets || []).find((a) => a.name === MERGED_ASSET);
-  if (!asset) {
-    throw new Error(`${MERGED_ASSET} not found on ${release.tag_name}`);
-  }
+  const manifest = await loadFirmwareManifest();
+  const part = manifest.builds?.[0]?.parts?.[0];
+  const binName = part?.path || MERGED_ASSET;
+  const url = `${FIRMWARE_BASE}/${binName}`;
 
-  log(`Downloading ${release.name || release.tag_name}…`);
-  // github.com release URLs block cross-origin fetch from Pages; API asset URL works.
-  const resp = await fetch(asset.url, {
-    headers: { Accept: "application/octet-stream" },
-  });
+  log(`Downloading ${manifest.name || manifest.version || binName}…`);
+  const resp = await fetch(url, { cache: "no-store" });
   if (!resp.ok) {
     throw new Error(`Download failed (HTTP ${resp.status})`);
   }
