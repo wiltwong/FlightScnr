@@ -41,10 +41,12 @@ jobs:
             new_tag="${GITHUB_REF#refs/tags/}"
             echo "Using pushed tag: $new_tag"
           else
-            today_prefix="$(date -u +%y).$(date -u +%-m).$(date -u +%-d)"
+            RELEASE_TZ=America/Los_Angeles
+            today_prefix="$(TZ=${RELEASE_TZ} date +%Y).$(TZ=${RELEASE_TZ} date +%-m).$(TZ=${RELEASE_TZ} date +%-d)"
+            legacy_prefix="$(TZ=${RELEASE_TZ} date +%y).$(TZ=${RELEASE_TZ} date +%-m).$(TZ=${RELEASE_TZ} date +%-d)"
             latest_count=0
             shopt -s nullglob
-            for tag in $(git tag -l "${today_prefix}.*"); do
+            for tag in $(git tag -l "${today_prefix}.*" "${legacy_prefix}.*"); do
               n="${tag##*.}"
               if [[ "$n" =~ ^[0-9]+$ ]] && (( n > latest_count )); then
                 latest_count=$n

@@ -122,33 +122,16 @@ pio run -t merge -e tencoder-pro
 
 Output: `.pio/build/tencoder-pro/firmware-merged.bin`. For a **full factory flash**, write at offset **0x0** (erases saved Wi‑Fi and settings). Normal updates use the app image at **0x10000** instead (see WebFlasher below).
 
-If upload fails, hold the board **BOOT** button (not the knob), tap reset, and retry.
+If upload fails, hold the board **BOOT** button (not the knob), tap reset, and retry.  
 
-## Releases
 
-Each push to **`master`** automatically builds firmware and publishes a GitHub Release named **`Release YY.M.D.N`** (UTC date + daily build number). Example: **`Release 26.6.5.1`** = 2026-06-05, 1st release that day; the next push the same day becomes **`Release 26.6.5.2`**. You can also run **Actions → Release → Run workflow** or push a matching tag (e.g. `26.6.5.3`).
-
-Add `[skip release]` anywhere in a commit message to push without creating a release (docs-only changes, etc.).
-
-Published builds: [GitHub Releases](https://github.com/yashmulgaonkar/FlightScnr/releases). Each release includes:
-
-| File | Purpose |
-| --- | --- |
-| `FlightScnr-tencoder-pro-merged.bin` | Full factory image — manual flash at **0x0** only |
-| `FlightScnr-tencoder-pro-app.bin` | Application update — flash at **0x10000** (used by WebFlasher **Install**) |
-| `SHA256SUMS.txt` | Checksums |
-
-### WebFlasher (browser install)
+### WebFlasher (browser based)
 
 **[FlightScnr WebFlasher](https://yashmulgaonkar.github.io/FlightScnr)** flashes firmware over USB from Chrome or Edge — no PlatformIO required.
 
 1. Connect the T-Encoder Pro via USB.
 2. Open WebFlasher, click **Connect**, then **Install**.
 3. If needed, hold **BOOT** while connecting.
-
-**Install** writes `FlightScnr-tencoder-pro-app.bin` at **0x10000** and keeps Wi‑Fi and saved settings. Upload a `merged` `.bin` in the UI only if you need a full factory flash at **0x0**.
-
-WebFlasher lives in the **`docs/`** folder. **Settings → Pages → Build and deployment → Source** must be **GitHub Actions**. Each **Release** workflow run builds firmware, writes `docs/firmware/manifest.json`, and deploys the installer. To redeploy UI-only changes without a new release, run **Actions → Deploy WebFlasher**.
 
 ## Configuration
 
