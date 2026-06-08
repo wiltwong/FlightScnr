@@ -1,8 +1,6 @@
 # FlightScnr for LilyGO T-Encoder Pro
 
-<p align="center">
-<img src="assets/FlightScnr.JPG" width="500" />
-</p>
+
 
 Open-source firmware that shows **live ADS-B traffic** on a sweeping radar around your preset position. Built for the **[LilyGO T-Encoder Pro](https://www.lilygo.cc/zo4apl)**, inspired by desktop flight-tracking radar gadgets such as **[ESP32-Plane-Radar](https://github.com/MatixYo/ESP32-Plane-Radar)** and **[deskradar](https://github.com/arvis91/deskradar)**.
 
@@ -15,9 +13,10 @@ Firmware is released under **[CC BY-NC-SA 4.0](https://creativecommons.org/licen
 - **Sweeping radar:** concentric range rings, compass rose, radar sweep line, top-down **aircraft pips** (heading-aligned), and callsign / type / altitude tags
 - **Display range:** 2 / 4 / 6 / 8 mi on the outermost ring. Inner rings show 1/3 and 2/3 of that scale. Knob changes preset.
 - **Distance units:** statute miles or kilometers on ring labels and detail readouts
+- **Radar theme color:** Red, Yellow, Orange, Green, or White for crosshairs, compass rose, scale labels, and sweep line
 - **Beyond-ring pips:** aircraft outside the active range still appear on the rim
 - **Flight detail:** tap a blip or short press the knob for callsign, airline, route, ICAO type, altitude, and speed. Turn the knob to cycle through visible aircraft.
-- **Settings:** swipe left from radar for page 1 (network / location) and page 2 (brightness, units, compass rose)
+- **Settings:** swipe left from radar for page 1 (network / location), page 2 (brightness, units, compass rose), and page 3 (radar theme color)
 - **Clock:** swipe down from radar for large local time (NTP). Swipe left for UTC offset and 12h/24h format.
 - **Web settings:** on your local network at [http://flightscnr.local/](http://flightscnr.local/) (or device IP) for radar center, filters, route API keys, monthly limits, and route-cache download
 - **Setup portal:** captive portal on first boot or after knob reset. Wi‑Fi network and password only at [http://4.3.2.1](http://4.3.2.1). Other settings use the live web portal after connecting.
@@ -28,21 +27,21 @@ Firmware is released under **[CC BY-NC-SA 4.0](https://creativecommons.org/licen
 ## Controls
 
 
-| Input                | Radar                      | Flight detail | Settings 1/2  | Settings 2/2                       | Clock               | Clock settings          |
-| -------------------- | -------------------------- | ------------- | ------------- | ---------------------------------- | ------------------- | ----------------------- |
-| **Rotate knob**      | Next range preset          | Next aircraft |               | Change highlighted value           |                     | Adjust UTC offset       |
-| **Short press knob** | Open detail (closest)      |               |               | Cycle brightness / units / compass |                     | Cycle timezone / format |
-| **Tap screen**       | Open detail (nearest blip) |               |               |                                    |                     |                         |
-| **Swipe down**       | Open clock                 |               |               |                                    |                     |                         |
-| **Swipe up**         |                            |               |               |                                    | Back to radar       |                         |
-| **Swipe left**       | Open settings (page 1)     |               | Open page 2   |                                    | Open clock settings |                         |
-| **Swipe right**      |                            | Back to radar | Back to radar | Back to page 1                     |                     | Back to clock           |
-| **Hold knob 3 s**    | WiFi reset               | Same          | Same          | Same                               | Same                | Same                    |
+| Input                | Radar                      | Flight detail | Settings 1/3  | Settings 2/3                       | Settings 3/3      | Clock               | Clock settings          |
+| -------------------- | -------------------------- | ------------- | ------------- | ---------------------------------- | ----------------- | ------------------- | ----------------------- |
+| **Rotate knob**      | Next range preset          | Next aircraft |               | Change highlighted value           | Cycle radar color |                     | Adjust UTC offset       |
+| **Short press knob** | Open detail (closest)      |               |               | Cycle brightness / units / compass |                   |                     | Cycle timezone / format |
+| **Tap screen**       | Open detail (nearest blip) |               |               |                                    |                   |                     |                         |
+| **Swipe down**       | Open clock                 |               |               |                                    |                   |                     |                         |
+| **Swipe up**         |                            |               |               |                                    |                   | Back to radar       |                         |
+| **Swipe left**       | Open settings (page 1)     |               | Open page 2   | Open page 3                        |                   | Open clock settings |                         |
+| **Swipe right**      |                            | Back to radar | Back to radar | Back to page 1                     | Back to page 2    |                     | Back to clock           |
+| **Hold knob 3 s**    | WiFi reset                 | Same          | Same          | Same                               | Same              | Same                | Same                    |
 
 
-**Idle timeout (10 s):** flight detail and both settings pages return to **radar**. Clock settings return to the **clock** (not radar). The clock face has no idle timeout.
+**Idle timeout (10 s):** flight detail and all settings pages return to **radar**. Clock settings return to the **clock** (not radar). The clock face has no idle timeout.
 
-Range, distance units, brightness, clock timezone/format, and route API settings persist across reboots.
+Range, distance units, brightness, radar theme color, clock timezone/format, and route API settings persist across reboots.
 
 **Note:** Do not hold the **knob** while powering on. It shares **GPIO 0** with the ESP32-S3 and will enter **USB download / bootloader** mode. Use the **3 s hold** while the app is already running to open the setup portal again.
 
@@ -74,10 +73,11 @@ To reset **Wi‑Fi** and reopen the captive portal, hold the knob **3 s** (clear
 - Callsign, airline, route (`ORIG > DEST`), ICAO aircraft type (e.g. `B738`), altitude, ground speed
 - Footer: aircraft index, gesture guide
 
-### Settings (1/2 and 2/2)
+### Settings (1/3, 2/3, and 3/3)
 
 - **Page 1:** IP, Wi‑Fi SSID, lat/lon, min altitude, web hostname
-- **Page 2:** brightness, miles/km, compass rose on/off (knob adjusts highlighted row)
+- **Page 2:** brightness, miles/km, compass rose on/off (knob press cycles highlighted row; turn adjusts value)
+- **Page 3:** radar theme color — Red, Yellow, Orange, Green, or White (turn knob to cycle). Applies to range rings, crosshairs, compass rose, scale labels, and sweep line.
 - Footer: gesture guide
 
 ### Clock
@@ -93,9 +93,9 @@ To reset **Wi‑Fi** and reopen the captive portal, hold the knob **3 s** (clear
 ## Hardware
 
 
-| Item          | Details                                                                                                                                |
-| ------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| **Board**     | [LilyGO T-Encoder Pro](https://www.lilygo.cc/zo4apl). ESP32-S3-R8, 16 MB flash, 8 MB OPI PSRAM                                         |
+| Item          | Details                                                                                                                                                                      |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Board**     | [LilyGO T-Encoder Pro](https://www.lilygo.cc/zo4apl). ESP32-S3-R8, 16 MB flash, 8 MB OPI PSRAM                                                                               |
 | **Enclosure** | [MakerWorld Link](https://makerworld.com/en/models/2902669-flightscnr-live-ads-b-traffic-sweeping-radar#profileId-3245055). Not in this repo. Terms on the model page apply. |
 
 

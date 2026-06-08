@@ -13,6 +13,7 @@
 #include "geo/flat_earth.h"
 #include "services/map_center.h"
 #include "ui/aircraft_symbol.h"
+#include "ui/radar_accent.h"
 #include "ui/radar_scale.h"
 #include "ui/radar_theme.h"
 
@@ -108,12 +109,13 @@ void initLabelMetrics() {
 }
 
 void initPalette() {
+  const radar::AccentRgb accent = radar::accentPalette();
   radar::kColorBackground = tft.color565(radar::kBgR, radar::kBgG, radar::kBgB);
-  radar::kColorGrid = tft.color565(radar::kGridR, radar::kGridG, radar::kGridB);
-  radar::kColorSweep = tft.color565(radar::kSweepR, radar::kSweepG, radar::kSweepB);
+  radar::kColorGrid = tft.color565(accent.grid_r, accent.grid_g, accent.grid_b);
+  radar::kColorSweep = tft.color565(accent.sweep_r, accent.sweep_g, accent.sweep_b);
   radar::kColorSweepTrail =
-      tft.color565(radar::kSweepTrailR, radar::kSweepTrailG, radar::kSweepTrailB);
-  radar::kColorLabel = tft.color565(255, 255, 255);
+      tft.color565(accent.trail_r, accent.trail_g, accent.trail_b);
+  radar::kColorLabel = tft.color565(accent.label_r, accent.label_g, accent.label_b);
   radar::kColorAircraft =
       tft.color565(radar::kAircraftR, radar::kAircraftG, radar::kAircraftB);
   radar::kColorTagType =

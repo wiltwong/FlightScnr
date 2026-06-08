@@ -20,6 +20,7 @@
 #include "ui/details_screen.h"
 #include "ui/flight_detail_screen.h"
 #include "ui/info_screen.h"
+#include "ui/radar_accent.h"
 #include "ui/radar_display.h"
 #include "ui/radar_scale.h"
 #include "ui/radar_theme.h"
@@ -121,7 +122,7 @@ void openSettingsFromRadar() {
   g_screen = AppScreen::Settings;
   noteSecondaryActivity();
   showSettings();
-  Serial.println("Screen: settings (1/2)");
+  Serial.println("Screen: settings (1/3)");
 }
 
 void openClockFromRadar() {
@@ -218,14 +219,25 @@ void handleNavigation() {
     ui::infoScreenSetPage(ui::InfoSettingsPage::Display);
     ui::infoScreenResetDisplayFocus();
     showSettings();
-    Serial.println("Screen: settings (2/2)");
+    Serial.println("Screen: settings (2/3)");
+  } else if (swipe == SwipeLeft && g_screen == AppScreen::Settings &&
+             ui::infoScreenPage() == ui::InfoSettingsPage::Display) {
+    ui::infoScreenSetPage(ui::InfoSettingsPage::Colors);
+    showSettings();
+    Serial.println("Screen: settings (3/3)");
   } else if (swipe == SwipeRight && g_screen == AppScreen::FlightDetail) {
     returnToRadar(false);
+  } else if (swipe == SwipeRight && g_screen == AppScreen::Settings &&
+             ui::infoScreenPage() == ui::InfoSettingsPage::Colors) {
+    ui::infoScreenSetPage(ui::InfoSettingsPage::Display);
+    ui::infoScreenResetDisplayFocus();
+    showSettings();
+    Serial.println("Screen: settings (2/3)");
   } else if (swipe == SwipeRight && g_screen == AppScreen::Settings &&
              ui::infoScreenPage() == ui::InfoSettingsPage::Display) {
     ui::infoScreenSetPage(ui::InfoSettingsPage::Main);
     showSettings();
-    Serial.println("Screen: settings (1/2)");
+    Serial.println("Screen: settings (1/3)");
   } else if (swipe == SwipeRight && g_screen == AppScreen::Settings) {
     returnToRadar(false);
   }
@@ -318,6 +330,11 @@ void handleInput() {
         ui::infoScreenCycleDisplayFocus();
         showSettings();
         return;
+      }
+    } else if (ui::infoScreenPage() == ui::InfoSettingsPage::Colors) {
+      if (inputConsumeKnobPress()) {
+        noteSecondaryActivity();
+        hardware::buzzerClick();
       }
     }
     const int8_t enc = inputConsumeEncoderDelta();
@@ -412,6 +429,7 @@ void setup() {
   hardware::buzzerBootLoad();
   services::map_center::bootLoad();
   ui::radar::scaleBootLoad();
+  ui::radar::accentBootLoad();
   services::adsb::trafficFilterBootLoad();
   services::clock::bootLoad();
 

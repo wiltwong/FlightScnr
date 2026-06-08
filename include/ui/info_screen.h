@@ -4,7 +4,7 @@
 
 namespace ui {
 
-enum class InfoSettingsPage : uint8_t { Main, Display };
+enum class InfoSettingsPage : uint8_t { Main, Display, Colors };
 
 void infoScreenResetToMain();
 InfoSettingsPage infoScreenPage();

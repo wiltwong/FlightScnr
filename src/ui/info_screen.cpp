@@ -13,6 +13,7 @@
 #include "hardware/display_font.h"
 #include "services/adsb_client.h"
 #include "services/map_center.h"
+#include "ui/radar_accent.h"
 #include "ui/radar_scale.h"
 #include "ui/radar_theme.h"
 
@@ -187,7 +188,7 @@ void drawMainPage(uint16_t bg, uint16_t fg, uint16_t label_fg, uint16_t hint_fg)
   displayFontApply(tft, displayFontTitle());
   tft.setTextDatum(TextDatum::TopCenter);
   tft.setTextColor(fg, bg);
-  tft.drawString("Settings 1/2", kCenterX, y);
+  tft.drawString("Settings 1/3", kCenterX, y);
   y += title_h + kTitleGap;
 
   for (const InfoLine& line : main_lines) {
@@ -201,6 +202,14 @@ void drawMainPage(uint16_t bg, uint16_t fg, uint16_t label_fg, uint16_t hint_fg)
   }
 }
 
+uint16_t settingsActiveFg() {
+  uint8_t r = 0;
+  uint8_t g = 0;
+  uint8_t b = 0;
+  ui::radar::accentHighlightRgb(&r, &g, &b);
+  return tft.color565(r, g, b);
+}
+
 void drawDisplayPage(uint16_t bg, uint16_t fg, uint16_t label_fg, uint16_t hint_fg) {
   char bright_line[32];
   char units_line[24];
@@ -211,8 +220,7 @@ void drawDisplayPage(uint16_t bg, uint16_t fg, uint16_t label_fg, uint16_t hint_
                       compass_line, sizeof(compass_line), beep_line, sizeof(beep_line),
                       beep_tone_line, sizeof(beep_tone_line));
 
-  const uint16_t active_fg = tft.color565(ui::radar::kSweepR, ui::radar::kSweepG,
-                                          ui::radar::kSweepB);
+  const uint16_t active_fg = settingsActiveFg();
   const uint16_t bright_fg =
       (s_display_focus == DisplayAdjustRow::Brightness) ? active_fg : label_fg;
   const uint16_t units_fg =
@@ -235,6 +243,7 @@ void drawDisplayPage(uint16_t bg, uint16_t fg, uint16_t label_fg, uint16_t hint_
   const InfoLine hint_lines[] = {
       {"Knob press: change item", displayFontDetail(), hint_fg},
       {"Turn knob: change value", displayFontDetail(), hint_fg},
+      {"Swipe left — Colors", displayFontDetail(), hint_fg},
       {"Swipe right — Settings", displayFontDetail(), hint_fg},
   };
   const int options_h = measureBlockHeight(option_lines, sizeof(option_lines) / sizeof(option_lines[0]));
@@ -249,7 +258,48 @@ void drawDisplayPage(uint16_t bg, uint16_t fg, uint16_t label_fg, uint16_t hint_
   displayFontApply(tft, displayFontTitle());
   tft.setTextDatum(TextDatum::TopCenter);
   tft.setTextColor(fg, bg);
-  tft.drawString("Settings 2/2", kCenterX, y);
+  tft.drawString("Settings 2/3", kCenterX, y);
+  y += title_h + kTitleGap;
+
+  for (const InfoLine& line : option_lines) {
+    drawCenterLine(line.text, &y, line.style, line.color, bg);
+  }
+
+  y += kHintsTopGap;
+
+  for (const InfoLine& line : hint_lines) {
+    drawCenterLine(line.text, &y, line.style, line.color, bg);
+  }
+}
+
+void drawColorsPage(uint16_t bg, uint16_t fg, uint16_t label_fg, uint16_t hint_fg) {
+  char color_line[28];
+  snprintf(color_line, sizeof(color_line), "Radar color: %s",
+           ui::radar::accentColorName());
+
+  const uint16_t active_fg = settingsActiveFg();
+
+  const int title_h = displayFontHeight(tft, displayFontTitle());
+  const InfoLine option_lines[] = {
+      {color_line, displayFontBody(), active_fg},
+  };
+  const InfoLine hint_lines[] = {
+      {"Turn knob: change color", displayFontDetail(), hint_fg},
+      {"Swipe right — Display", displayFontDetail(), hint_fg},
+  };
+  const int options_h = measureBlockHeight(option_lines, sizeof(option_lines) / sizeof(option_lines[0]));
+  const int hints_h = measureBlockHeight(hint_lines, sizeof(hint_lines) / sizeof(hint_lines[0]));
+  const int block_h = title_h + kTitleGap + options_h + kHintsTopGap + hints_h + kFooterGap;
+
+  int y = kCenterY - block_h / 2;
+  if (y < kBezelInsetPx) {
+    y = kBezelInsetPx;
+  }
+
+  displayFontApply(tft, displayFontTitle());
+  tft.setTextDatum(TextDatum::TopCenter);
+  tft.setTextColor(fg, bg);
+  tft.drawString("Settings 3/3", kCenterX, y);
   y += title_h + kTitleGap;
 
   for (const InfoLine& line : option_lines) {
@@ -307,15 +357,27 @@ void infoScreenDraw() {
 
   if (s_page == ui::InfoSettingsPage::Main) {
     drawMainPage(bg, fg, label_fg, hint_fg);
-  } else {
+  } else if (s_page == ui::InfoSettingsPage::Display) {
     drawDisplayPage(bg, fg, label_fg, hint_fg);
+  } else {
+    drawColorsPage(bg, fg, label_fg, hint_fg);
   }
 
   tft.setTextDatum(TextDatum::TopLeft);
 }
 
 void infoScreenHandleKnob(int8_t delta) {
-  if (delta == 0 || s_page != ui::InfoSettingsPage::Display) {
+  if (delta == 0) {
+    return;
+  }
+
+  if (s_page == ui::InfoSettingsPage::Colors) {
+    ui::radar::accentStep(delta);
+    infoScreenDraw();
+    return;
+  }
+
+  if (s_page != ui::InfoSettingsPage::Display) {
     return;
   }
 
