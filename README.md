@@ -1,6 +1,8 @@
 # FlightScnr for LilyGO T-Encoder Pro
 
-
+<p align="center">
+<img src="assets/FlightScnr.JPG" width="500" />
+</p>
 
 Open-source firmware that shows **live ADS-B traffic** on a sweeping radar around your preset position. Built for the **[LilyGO T-Encoder Pro](https://www.lilygo.cc/zo4apl)**, inspired by desktop flight-tracking radar gadgets such as **[ESP32-Plane-Radar](https://github.com/MatixYo/ESP32-Plane-Radar)** and **[deskradar](https://github.com/arvis91/deskradar)**.
 
