@@ -1,5 +1,14 @@
 # FlightScnr for LilyGO T-Encoder Pro
 
+---
+<p align="center">
+  <a href="https://buymeacoffee.com/yashmulgaonkar" target="_blank">
+    <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me a Coffee" style="height: 35px;">
+  </a>
+</p>
+
+---
+
 <p align="center">
 <img src="assets/FlightScnr.JPG" width="500" />
 </p>
@@ -184,3 +193,12 @@ The optional 3D-printed enclosure is **not** part of this firmware repository. I
 > You shall not share, sub-license, sell, rent, host, transfer, or distribute in any way the digital or 3D printed versions of this object, nor any other derivative work of this object in its digital or physical format (including - but not limited to - remixes of this object, and hosting on other digital platforms). The objects may not be used without permission in any way whatsoever in which you charge money, or collect fees.
 
 Always read the full license on MakerWorld before downloading, printing, or sharing the enclosure design.
+
+---
+<p align="center">
+  <a href="https://buymeacoffee.com/yashmulgaonkar" target="_blank">
+    <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me a Coffee" style="height: 35px;">
+  </a>
+</p>
+
+---
