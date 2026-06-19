@@ -6,6 +6,7 @@
 #include "services/api_keys.h"
 #include "services/map_center.h"
 #include "hardware/buzzer.h"
+#include "hardware/display_brightness.h"
 #include "ui/radar_scale.h"
 
 namespace {
@@ -38,7 +39,8 @@ bool settingsApplyFromForm(const char* radar_center_str, const char* lat_str,
                            const char* use_fr24_checkbox, const char* airlabs_max_calls,
                            const char* flightaware_max_usd, const char* flightaware_cost_usd,
                            const char* fr24_max_usd, const char* fr24_cost_usd,
-                           const char* ui_beep_checkbox, const char* beep_tone_str) {
+                           const char* ui_beep_checkbox, const char* beep_tone_str,
+                           const char* bright_pct_str) {
   bool loc_ok = false;
   if (radar_center_str != nullptr && radar_center_str[0] != '\0') {
     loc_ok = services::map_center::applyRadarCenterFromForm(radar_center_str);
@@ -57,6 +59,7 @@ bool settingsApplyFromForm(const char* radar_center_str, const char* lat_str,
                                         flightaware_cost_usd, fr24_max_usd, fr24_cost_usd);
   hardware::saveBeepEnabledFromForm(ui_beep_checkbox);
   hardware::saveBeepToneFromForm(beep_tone_str);
+  hardware::displayBrightnessSaveFromForm(bright_pct_str);
 
   uint8_t range_idx = 0;
   if (parseRangeIndex(range_index_str, &range_idx)) {

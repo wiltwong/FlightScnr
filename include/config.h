@@ -18,7 +18,7 @@ constexpr char kGithubRepoUrl[] =
     "https://github.com/yashmulgaonkar/FlightScnr";
 
 /** Captive portal footer link (placeholder until author page is ready). */
-constexpr char kPortalAuthorUrl[] = "https://example.com";
+constexpr char kPortalAuthorUrl[] = "https://github.com/yashmulgaonkar/FlightScnr";
 
 // --- Wi-Fi portal ---
 constexpr char kPortalApName[] = "FlightScnr-AP";
@@ -57,8 +57,8 @@ constexpr unsigned long kSecondaryScreenTimeoutMs = 10000;
 constexpr unsigned long kBootDetailsDurationMs = 5000;
 
 // --- Map center factory defaults (portal can override) ---
-constexpr double kFactoryLatitude = 52.3676;
-constexpr double kFactoryLongitude = 4.9041;
+constexpr double kFactoryLatitude = 37.61977;
+constexpr double kFactoryLongitude = -122.37227;
 
 /** ADS-B poll interval (adsb.fi public limit ~1 req/s). */
 constexpr unsigned long kTrafficPollIntervalMs = 2000;

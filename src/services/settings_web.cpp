@@ -14,6 +14,7 @@
 
 #include "config.h"
 #include "hardware/buzzer.h"
+#include "hardware/display_brightness.h"
 #include "services/adsb_client.h"
 #include "services/api_keys.h"
 #include "services/map_center.h"
@@ -151,6 +152,24 @@ void handleSettingsPage() {
       ui::radar::showCompassRose() ? " checked" : "");
   if (card_n > 0) {
     used += static_cast<size_t>(card_n);
+  }
+
+  const uint8_t bright = hardware::displayBrightnessPercent();
+  const int bright_n = snprintf(
+      page + used, kSettingsPageCap - used,
+      "<label for=\"bright_pct\">Screen brightness</label>"
+      "<select id=\"bright_pct\" name=\"bright_pct\">"
+      "<option value=\"20\"%s>20%%</option>"
+      "<option value=\"40\"%s>40%%</option>"
+      "<option value=\"60\"%s>60%%</option>"
+      "<option value=\"80\"%s>80%%</option>"
+      "<option value=\"100\"%s>100%%</option>"
+      "</select>",
+      bright == 20 ? " selected" : "", bright == 40 ? " selected" : "",
+      bright == 60 ? " selected" : "", bright == 80 ? " selected" : "",
+      bright == 100 ? " selected" : "");
+  if (bright_n > 0) {
+    used += static_cast<size_t>(bright_n);
   }
 
   const int beep_n = snprintf(
@@ -385,7 +404,7 @@ void handleSave() {
       s_server->arg("flightaware_max_usd").c_str(),
       s_server->arg("flightaware_cost_usd").c_str(), s_server->arg("fr24_max_usd").c_str(),
       s_server->arg("fr24_cost_usd").c_str(), s_server->arg("ui_beep").c_str(),
-      s_server->arg("beep_tone").c_str());
+      s_server->arg("beep_tone").c_str(), s_server->arg("bright_pct").c_str());
 
   Serial.printf("Settings web save (lat/lon %s)\n", loc_ok ? "ok" : "invalid");
 

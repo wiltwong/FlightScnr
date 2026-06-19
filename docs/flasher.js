@@ -196,7 +196,7 @@ async function flashBinary(data, label, address = APP_FLASH_OFFSET) {
   log("Hard reset…");
   await esploader.after("hard_reset");
   setProgress(100, "Done");
-  log("Flash complete. FlightScnr should boot shortly.");
+  log("Flash complete. Unplug USB and reconnect to restart FlightScnr.");
 }
 
 async function runFlash(getData, label) {

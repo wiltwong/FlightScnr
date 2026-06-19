@@ -16,4 +16,5 @@ bool settingsApplyFromForm(const char* radar_center_str, const char* lat_str,
                            const char* use_fr24_checkbox, const char* airlabs_max_calls,
                            const char* flightaware_max_usd, const char* flightaware_cost_usd,
                            const char* fr24_max_usd, const char* fr24_cost_usd,
-                           const char* ui_beep_checkbox, const char* beep_tone_str);
+                           const char* ui_beep_checkbox, const char* beep_tone_str,
+                           const char* bright_pct_str);

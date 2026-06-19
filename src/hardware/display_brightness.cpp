@@ -1,6 +1,7 @@
 #include "hardware/display_brightness.h"
 
 #include <Preferences.h>
+#include <cstdlib>
 
 #include "hardware/display.h"
 
@@ -71,6 +72,28 @@ void displayBrightnessStep(int8_t delta) {
   }
 
   displayApplyBrightness();
+  Serial.printf("Brightness: %u%%\n", static_cast<unsigned>(s_percent));
+}
+
+void displayBrightnessSaveFromForm(const char* percent_str) {
+  if (percent_str == nullptr || percent_str[0] == '\0') {
+    return;
+  }
+  char* end = nullptr;
+  const long v = strtol(percent_str, &end, 10);
+  if (end == percent_str || (end != nullptr && *end != '\0')) {
+    return;
+  }
+  if (v < 0 || v > 100) {
+    return;
+  }
+  s_percent = kLevels[levelIndexFor(static_cast<uint8_t>(v))];
+
+  Preferences prefs;
+  if (prefs.begin(kStoreNs, false)) {
+    prefs.putUChar(kBrightPctKey, s_percent);
+    prefs.end();
+  }
   Serial.printf("Brightness: %u%%\n", static_cast<unsigned>(s_percent));
 }
 
