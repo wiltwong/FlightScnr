@@ -5,7 +5,9 @@
 #include "services/adsb_client.h"
 #include "services/api_keys.h"
 #include "services/map_center.h"
+#ifdef ENABLE_SOUND
 #include "hardware/buzzer.h"
+#endif
 #include "hardware/display_brightness.h"
 #include "ui/radar_scale.h"
 
@@ -57,8 +59,10 @@ bool settingsApplyFromForm(const char* radar_center_str, const char* lat_str,
                                          use_fr24_checkbox);
   services::apikeys::saveLimitsFromForm(airlabs_max_calls, flightaware_max_usd,
                                         flightaware_cost_usd, fr24_max_usd, fr24_cost_usd);
+  #ifdef ENABLE_SOUND
   hardware::saveBeepEnabledFromForm(ui_beep_checkbox);
   hardware::saveBeepToneFromForm(beep_tone_str);
+  #endif
   hardware::displayBrightnessSaveFromForm(bright_pct_str);
 
   uint8_t range_idx = 0;

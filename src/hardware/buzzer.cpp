@@ -1,3 +1,4 @@
+#ifdef ENABLE_SOUND
 #include "hardware/buzzer.h"
 
 #include <Arduino.h>
@@ -205,3 +206,4 @@ void saveBeepToneFromForm(const char* value) {
 }
 
 }  // namespace hardware
+#endif 

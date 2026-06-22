@@ -13,7 +13,9 @@
 #endif
 
 #include "config.h"
+#ifdef ENABLE_SOUND
 #include "hardware/buzzer.h"
+#endif
 #include "hardware/display_brightness.h"
 #include "services/adsb_client.h"
 #include "services/api_keys.h"
@@ -184,12 +186,19 @@ void handleSettingsPage() {
       "<option value=\"D\"%s>D</option>"
       "<option value=\"E\"%s>E</option>"
       "</select>",
-      hardware::buzzerEnabled() ? " checked" : "",
-      hardware::buzzerToneLetter() == 'A' ? " selected" : "",
-      hardware::buzzerToneLetter() == 'B' ? " selected" : "",
-      hardware::buzzerToneLetter() == 'C' ? " selected" : "",
-      hardware::buzzerToneLetter() == 'D' ? " selected" : "",
-      hardware::buzzerToneLetter() == 'E' ? " selected" : "");
+      //hardware::buzzerEnabled() ? " checked" : "",
+      //hardware::buzzerToneLetter() == 'A' ? " selected" : "",
+      //hardware::buzzerToneLetter() == 'B' ? " selected" : "",
+      //hardware::buzzerToneLetter() == 'C' ? " selected" : "",
+      //hardware::buzzerToneLetter() == 'D' ? " selected" : "",
+      //hardware::buzzerToneLetter() == 'E' ? " selected" : ""
+      " checked",
+      " selected",
+      "",
+      "",
+      "",
+      ""
+      );
   if (beep_n > 0) {
     used += static_cast<size_t>(beep_n);
   }
@@ -456,7 +465,7 @@ void settingsWebStart() {
   MDNS.end();
   if (MDNS.begin(config::kPortalHostname)) {
     MDNS.addService("http", "tcp", 80);
-    Serial.printf("Settings web: http://%s.local/  http://%s/\n",
+    Serial.printf("Settings web: http://%s.lan/  http://%s/\n",
                   config::kPortalHostname, WiFi.localIP().toString().c_str());
   } else {
     Serial.printf("Settings web: http://%s/  (mDNS unavailable)\n",

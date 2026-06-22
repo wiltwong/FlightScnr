@@ -4,13 +4,20 @@
 
 #include <cmath>
 
-#include "TouchDrvCHSC5816.hpp"
+//#include "TouchDrvCHSC5816.hpp"
+#include <Adafruit_CST8XX.h>
 #include "config.h"
-#include "hardware/buzzer.h"
+#include "global_vars.h"
+//#include "hardware/buzzer.h"
 #include "hardware/pin_config.h"
 #include "services/wifi_setup.h"
+#include <Adafruit_PCF8574.h>
 
 namespace {
+
+TaskHandle_t encTaskHandle = NULL;
+TaskHandle_t swTaskHandle = NULL;
+TaskHandle_t tsTaskHandle = NULL;
 
 portMUX_TYPE s_input_mux = portMUX_INITIALIZER_UNLOCKED;
 volatile bool s_encoder_step_pending = false;
@@ -30,12 +37,11 @@ volatile SwipeGesture s_swipe_pending = SwipeNone;
 volatile bool s_knob_is_down = false;
 volatile unsigned long s_knob_down_ms = 0;
 bool s_long_press_handled = false;
-bool s_knob_interrupt_attached = false;
 
 uint8_t s_knob_previous = 0;
-unsigned long s_knob_scan_ms = 0;
 
-TouchDrvCHSC5816 s_touch;
+//TouchDrvCHSC5816 s_touch;
+Adafruit_CST8XX s_touch = Adafruit_CST8XX();
 bool s_touch_ready = false;
 bool s_touch_was_down = false;
 bool s_touch_tracking = false;
@@ -47,39 +53,46 @@ int16_t s_touch_last_y = 0;
 constexpr int kSwipeMinPx = 70;
 constexpr int kTapMaxPx = 25;
 
-void IRAM_ATTR onKnobButtonIsr() {
-  const bool down = digitalRead(config::kKnobKeyPin) == LOW;
-  const unsigned long now = millis();
-  portENTER_CRITICAL_ISR(&s_input_mux);
-  if (down) {
-    if (!s_knob_is_down) {
-      s_knob_press_pending = true;
-    }
-    s_knob_is_down = true;
-    s_knob_down_ms = now;
-  } else if (s_knob_is_down) {
-    const unsigned long held = now - s_knob_down_ms;
-    if (held >= config::kKnobTapMinMs && held < config::kKnobResetHoldMs) {
-      s_knob_tap_pending = true;
+void swTask(void *pvParameters) {
+  while (1) {
+    vTaskDelay(pdMS_TO_TICKS(10));
+    
+    const unsigned long s_knob_start_time = millis();
+    volatile unsigned long s_knob_stop_time = s_knob_start_time;
+
+    //portENTER_CRITICAL_ISR(&s_input_mux);
+    while (pcf8574.digitalRead(config::kKnobKeyPin) == LOW && !s_long_press_handled) {
+      vTaskDelay(pdMS_TO_TICKS(20));
+      s_knob_is_down = true;
+      s_knob_stop_time = millis();
+      if (s_knob_stop_time - s_knob_start_time > config::kKnobResetHoldMs) {
+        s_long_press_handled = true;
+        continue;
+      }
     }
     s_knob_is_down = false;
+
+    if ((s_knob_stop_time - s_knob_start_time > config::kKnobResetHoldMs) || s_long_press_handled) {
+      // Handle long press action here
+      Serial.println("Knob held, resetting Wi-Fi");
+      wifiResetCredentialsAndReboot();
+      s_long_press_handled = false;
+    } else if (s_knob_stop_time - s_knob_start_time >= config::kKnobTapMinMs) {
+      // Handle short press action here
+      Serial.println("Short Press Detected");
+      s_knob_tap_pending = true;
+    }
+    //portEXIT_CRITICAL_ISR(&s_input_mux);
   }
-  portEXIT_CRITICAL_ISR(&s_input_mux);
 }
 
 void initKnobButton() {
-  pinMode(config::kKnobKeyPin, INPUT_PULLUP);
-  if (s_knob_interrupt_attached) {
-    return;
-  }
-  attachInterrupt(digitalPinToInterrupt(static_cast<uint8_t>(config::kKnobKeyPin)),
-                  onKnobButtonIsr, CHANGE);
-  s_knob_interrupt_attached = true;
+  pcf8574.pinMode(config::kKnobKeyPin, INPUT_PULLUP);
 }
 
 void initEncoder() {
-  pinMode(config::kKnobPinA, INPUT_PULLUP);
-  pinMode(config::kKnobPinB, INPUT_PULLUP);
+  pinMode(config::kKnobPinA, INPUT);
+  pinMode(config::kKnobPinB, INPUT);
   s_knob_previous = 0;
   if (digitalRead(config::kKnobPinA)) {
     s_knob_previous |= 0x02;
@@ -89,47 +102,47 @@ void initEncoder() {
   }
 }
 
-void pollEncoder() {
-  if (millis() < s_knob_scan_ms) {
-    return;
-  }
-  s_knob_scan_ms = millis() + 20;
+void encTask(void *pvParameters) {
+  while (1) {
+    vTaskDelay(pdMS_TO_TICKS(10));
 
-  uint8_t state = 0;
-  if (digitalRead(config::kKnobPinA)) {
-    state |= 0x02;
-  }
-  if (digitalRead(config::kKnobPinB)) {
-    state |= 0x01;
-  }
+    uint8_t state = 0;
+    if (digitalRead(config::kKnobPinA)) {
+      state |= 0x02;
+    }
+    if (digitalRead(config::kKnobPinB)) {
+      state |= 0x01;
+    }
 
-  if (state == s_knob_previous) {
-    return;
-  }
+    if (state == s_knob_previous) {
+      continue;
+    }
 
-  const int8_t movement = kEncoderQuad[(s_knob_previous << 2) | state];
-  s_knob_previous = state;
-  if (movement == 0) {
-    return;
-  }
+    const int8_t movement = kEncoderQuad[(s_knob_previous << 2) | state];
+    s_knob_previous = state;
+    if (movement == 0) {
+      continue;
+    }
 
-  s_encoder_accum += movement;
-  portENTER_CRITICAL(&s_input_mux);
-  if (s_encoder_accum >= kEncoderDetentThreshold) {
+    s_encoder_accum += movement;
+    //portENTER_CRITICAL(&s_input_mux);
+    if (s_encoder_accum >= kEncoderDetentThreshold) {
     s_encoder_step_pending = true;
     s_encoder_pending_delta = 1;
     s_encoder_accum -= kEncoderDetentThreshold;
-  } else if (s_encoder_accum <= -kEncoderDetentThreshold) {
-    s_encoder_step_pending = true;
-    s_encoder_pending_delta = -1;
-    s_encoder_accum += kEncoderDetentThreshold;
+    } else if (s_encoder_accum <= -kEncoderDetentThreshold) {
+      s_encoder_step_pending = true;
+      s_encoder_pending_delta = -1;
+      s_encoder_accum += kEncoderDetentThreshold;
+    }
+    //portEXIT_CRITICAL(&s_input_mux);
   }
-  portEXIT_CRITICAL(&s_input_mux);
 }
 
 void initTouch() {
-  s_touch.setPins(TOUCH_RST, TOUCH_INT);
-  if (!s_touch.begin(Wire, CHSC5816_SLAVE_ADDRESS, IIC_SDA, IIC_SCL)) {
+  //s_touch.setPins(TOUCH_RST, TOUCH_INT);
+  //if (!s_touch.begin(Wire, CHSC5816_SLAVE_ADDRESS, IIC_SDA, IIC_SCL)) {
+  if (!s_touch.begin(&Wire, CST8XX_SLAVE_ADDRESS)) {
     Serial.println("CHSC5816 touch init failed — encoder/knob only");
     s_touch_ready = false;
     return;
@@ -170,45 +183,56 @@ void finishTouchGesture() {
   }
 }
 
-void pollTouch() {
-  if (!s_touch_ready) {
-    return;
+void tsTask(void *pvParameters) {
+  while (1) {
+    vTaskDelay(pdMS_TO_TICKS(5));
+    if (!s_touch_ready) {
+      continue;
+    }
+
+    CST_TS_Point points;
+    bool down = s_touch.touched();
+
+    if (down) {
+      vTaskDelay(pdMS_TO_TICKS(10));
+      down = s_touch.touched(); // did we really get a touch, or was it some noise
+      if (down)
+        points = s_touch.getPoint(0);
+    }
+
+    //if(down)
+    //  Serial.println("****** TOUCHED ******");
+
+    if (down && !s_touch_was_down) {
+      s_touch_start_x = points.x;
+      s_touch_start_y = points.y;
+      s_touch_last_x = points.x;
+      s_touch_last_y = points.y;
+      s_touch_tracking = true;
+      //hardware::buzzerClick();
+    } else if (down && s_touch_tracking) {
+      s_touch_last_x = points.x;
+      s_touch_last_y = points.y;
+    } else if (!down && s_touch_was_down && s_touch_tracking) {
+      finishTouchGesture();
+      s_touch_tracking = false;
+    }
+
+    s_touch_was_down = down;
   }
-
-  int16_t x[2] = {};
-  int16_t y[2] = {};
-  const uint8_t points = s_touch.getPoint(x, y);
-  const bool down = points > 0;
-
-  if (down && !s_touch_was_down) {
-    s_touch_start_x = x[0];
-    s_touch_start_y = y[0];
-    s_touch_last_x = x[0];
-    s_touch_last_y = y[0];
-    s_touch_tracking = true;
-    hardware::buzzerClick();
-  } else if (down && s_touch_tracking) {
-    s_touch_last_x = x[0];
-    s_touch_last_y = y[0];
-  } else if (!down && s_touch_was_down && s_touch_tracking) {
-    finishTouchGesture();
-    s_touch_tracking = false;
-  }
-
-  s_touch_was_down = down;
 }
 
 }  // namespace
 
 void inputInit() {
   initKnobButton();
-  initEncoder();
-  initTouch();
-}
+  xTaskCreatePinnedToCore(swTask, "SWITCH", 2048, NULL, 1, &swTaskHandle, 0);
 
-void inputPoll() {
-  pollEncoder();
-  pollTouch();
+  initEncoder();
+  xTaskCreatePinnedToCore(encTask, "ENC", 2048, NULL, 1, &encTaskHandle, 0);
+  
+  initTouch();
+  xTaskCreatePinnedToCore(tsTask, "TOUCHSCREEN", 2048, NULL, 1, &tsTaskHandle, 0);
 }
 
 int8_t inputConsumeEncoderDelta() {
@@ -281,7 +305,7 @@ void inputDiscardPendingInteractions() {
   s_tap_y = -1;
   portEXIT_CRITICAL(&s_input_mux);
 }
-
+/*
 void inputPollLongPress() {
   if (digitalRead(config::kKnobKeyPin) == LOW) {
     portENTER_CRITICAL(&s_input_mux);
@@ -304,3 +328,4 @@ void inputPollLongPress() {
     s_long_press_handled = false;
   }
 }
+*/

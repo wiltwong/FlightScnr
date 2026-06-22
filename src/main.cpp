@@ -6,7 +6,8 @@
 #include <WiFi.h>
 
 #include "config.h"
-#include "hardware/buzzer.h"
+#include "global_vars.h"
+#include "hardware/pin_config.h"
 #include "hardware/display.h"
 #include "hardware/input.h"
 #include "services/adsb_client.h"
@@ -25,7 +26,11 @@
 #include "ui/radar_scale.h"
 #include "ui/radar_theme.h"
 
-namespace {
+WiFiClientSecure client;
+HTTPClient http;
+Adafruit_PCF8574 pcf8574;
+
+namespace  {
 
 enum class AppScreen : uint8_t {
   Radar,
@@ -73,6 +78,22 @@ void showFlightDetail() {
   g_radar_visible = false;
 }
 
+void requestFlightDetailRouteEnrich() {
+  const char* callsign = ui::flightDetailSelectedCallsign();
+  if (callsign != nullptr) {
+    services::route::onFlightDetailSelected(callsign);
+  }
+}
+
+void tickFlightDetailRouteEnrich() {
+  if (g_screen != AppScreen::FlightDetail) {
+    return;
+  }
+  if (services::route::detailEnrichmentReady() && services::route::detailEnrichmentConsume()) {
+    showFlightDetail();
+  }
+}
+
 void showSettings() {
   ui::infoScreenDraw();
   g_radar_visible = false;
@@ -95,6 +116,9 @@ void showDetails(bool boot_splash = false) {
 }
 
 void returnToRadar(bool from_idle_timeout = false) {
+  if (g_screen == AppScreen::FlightDetail) {
+    services::route::cancelDetailEnrichment();
+  }
   if (from_idle_timeout) {
     ui::infoScreenResetToMain();
     ui::clockSettingsResetFocus();
@@ -154,6 +178,7 @@ void openFlightDetailFromRadar(int16_t tap_x, int16_t tap_y, bool from_screen_ta
   }
   g_screen = AppScreen::FlightDetail;
   noteSecondaryActivity();
+  requestFlightDetailRouteEnrich();
   showFlightDetail();
   Serial.println("Screen: flight detail");
 }
@@ -163,6 +188,7 @@ void onFlightDetailStep(int8_t delta) {
     return;
   }
   if (ui::flightDetailCycle(delta)) {
+    requestFlightDetailRouteEnrich();
     showFlightDetail();
   }
 }
@@ -286,8 +312,8 @@ void tickClockDisplay() {
 }
 
 void handleInput() {
-  inputPoll();
-  inputPollLongPress();
+  //inputPoll();
+  //inputPollLongPress();
   handleNavigation();
 
   if (g_screen == AppScreen::Radar) {
@@ -304,7 +330,7 @@ void handleInput() {
     const int8_t enc = inputConsumeEncoderDelta();
     if (enc != 0) {
       onRangeStep(enc);
-      hardware::buzzerClick();
+      //hardware::buzzerClick();
     }
     return;
   }
@@ -314,7 +340,7 @@ void handleInput() {
     if (enc != 0) {
       noteSecondaryActivity();
       onFlightDetailStep(enc);
-      hardware::buzzerClick();
+      //hardware::buzzerClick();
     }
     return;
   }
@@ -323,7 +349,7 @@ void handleInput() {
     if (ui::infoScreenPage() == ui::InfoSettingsPage::Display) {
       if (inputConsumeKnobPress()) {
         noteSecondaryActivity();
-        hardware::buzzerClick();
+        //hardware::buzzerClick();
       }
       if (inputConsumeKnobTap()) {
         noteSecondaryActivity();
@@ -334,14 +360,14 @@ void handleInput() {
     } else if (ui::infoScreenPage() == ui::InfoSettingsPage::Colors) {
       if (inputConsumeKnobPress()) {
         noteSecondaryActivity();
-        hardware::buzzerClick();
+        //hardware::buzzerClick();
       }
     }
     const int8_t enc = inputConsumeEncoderDelta();
     if (enc != 0) {
       noteSecondaryActivity();
       ui::infoScreenHandleKnob(enc);
-      hardware::buzzerClick();
+      //hardware::buzzerClick();
     }
     return;
   }
@@ -349,7 +375,7 @@ void handleInput() {
   if (g_screen == AppScreen::ClockSettings) {
     if (inputConsumeKnobPress()) {
       noteSecondaryActivity();
-      hardware::buzzerClick();
+      //hardware::buzzerClick();
     }
     if (inputConsumeKnobTap()) {
       noteSecondaryActivity();
@@ -361,7 +387,7 @@ void handleInput() {
     if (enc != 0) {
       noteSecondaryActivity();
       ui::clockSettingsHandleKnob(enc);
-      hardware::buzzerClick();
+      //hardware::buzzerClick();
     }
     return;
   }
@@ -392,7 +418,7 @@ void tickAdsbFetch() {
     if (g_screen == AppScreen::Radar && g_radar_visible) {
       ui::radarDisplayRefreshAircraft();
     } else if (g_screen == AppScreen::FlightDetail) {
-      ui::flightDetailDraw();
+      ui::flightDetailRefresh();
     }
   }
 
@@ -421,12 +447,51 @@ void setup() {
   Serial.begin(115200);
   delay(500);
   Serial.println();
-  Serial.println("FlightScnr (T-Encoder Pro)");
+  Serial.println("FlightScnr (Elecrow Rotary Screen 2.1\")");
+
+
+  Wire.setPins(IIC_SDA, IIC_SCL);
+  Wire.setClock(1000000);
+
+  if (!pcf8574.begin(PCF8574_SLAVE_ADDRESS, &Wire)) {
+    Serial.println("Couldn't find PCF8575");
+    while (1);
+  }
+
+  pcf8574.pinMode(0, OUTPUT);        //tp RST
+  pcf8574.pinMode(2, OUTPUT);        //tp INT
+  pcf8574.pinMode(3, OUTPUT);        //lcd power
+  pcf8574.pinMode(4, OUTPUT);        //lcd reset
+  //pcf8574.pinMode(P5, INPUT_PULLUP);  //encoder SW
+
+  pcf8574.digitalWrite(3, HIGH);
+  delay(100);
+
+  /*lcd reset*/
+  pcf8574.digitalWrite(4, HIGH);
+  delay(100);
+  pcf8574.digitalWrite(4, LOW);
+  delay(120);
+  pcf8574.digitalWrite(4, HIGH);
+  delay(120);
+  /*end*/
+
+  /*tp RST*/
+  pcf8574.digitalWrite(0, HIGH);
+  delay(100);
+  pcf8574.digitalWrite(0, LOW);
+  delay(120);
+  pcf8574.digitalWrite(0, HIGH);
+  delay(120);
+  /*tp INT*/
+  pcf8574.digitalWrite(2, HIGH);
+  delay(120);
 
   inputInit();
+  
   displayInit();
-  hardware::buzzerInit();
-  hardware::buzzerBootLoad();
+  //hardware::buzzerInit();
+  //hardware::buzzerBootLoad();
   services::map_center::bootLoad();
   ui::radar::scaleBootLoad();
   ui::radar::accentBootLoad();
@@ -445,13 +510,14 @@ void setup() {
 }
 
 void loop() {
-  hardware::buzzerPoll();
+  //hardware::buzzerPoll();
   tickBootDetailsSplash();
   tickSecondaryScreenTimeout();
   tickClockDisplay();
   handleInput();
   settingsWebPoll();
   services::route::tickCacheFlush(millis());
+  tickFlightDetailRouteEnrich();
 
   if (WiFi.status() != WL_CONNECTED) {
     settingsWebStop();
@@ -492,8 +558,8 @@ void loop() {
       if (!g_radar_visible) {
         showRadar();
       } else {
-        tickRadarAnimation();
         tickAdsbFetch();
+        tickRadarAnimation();
       }
     } else if (g_screen == AppScreen::FlightDetail) {
       tickAdsbFetch();

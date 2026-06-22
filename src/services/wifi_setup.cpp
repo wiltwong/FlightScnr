@@ -22,7 +22,6 @@ namespace {
 
 constexpr char kWifiPrefsNamespace[] = "wifi";
 constexpr char kPrefsForcePortalKey[] = "portal";
-constexpr uint8_t kReconnectFailuresBeforePortal = 2;
 
 /** Injected into every WiFiManager page via setCustomHeadElement. */
 char s_portal_custom_head[896];
@@ -48,7 +47,6 @@ void buildPortalCustomHead() {
 }
 
 bool s_force_config_portal = false;
-uint8_t s_reconnect_failures = 0;
 
 void markForceConfigPortal() {
   s_force_config_portal = true;
@@ -71,8 +69,9 @@ bool consumeForceConfigPortal() {
     return true;
   }
 
+  // Read-write open: missing "wifi" namespace on first boot would log NOT_FOUND in read-only mode.
   Preferences prefs;
-  if (!prefs.begin(kWifiPrefsNamespace, true)) {
+  if (!prefs.begin(kWifiPrefsNamespace, false)) {
     return false;
   }
   const bool pending = prefs.getBool(kPrefsForcePortalKey, false);
@@ -125,6 +124,11 @@ bool readSavedWifiCredentials(String* ssid, String* pass) {
 }
 
 void onStaConnected() { settingsWebStart(); }
+
+void onStaLinkReady() {
+  WiFi.setAutoReconnect(true);
+  onStaConnected();
+}
 
 void prepareWifiForPortal() {
   settingsWebStop();
@@ -221,7 +225,7 @@ bool waitForLinkWithUi(const char* ssid_for_ui, unsigned long attempt_ms) {
     if (wifiLinkUp()) {
       return true;
     }
-    inputPollLongPress();
+    //inputPollLongPress();
     bootScreenConnectingPulse();
     delay(config::kWifiConnectingFrameMs);
   }
@@ -230,7 +234,7 @@ bool waitForLinkWithUi(const char* ssid_for_ui, unsigned long attempt_ms) {
 
 bool tryConnectWithUi(const String& ssid, const String& pass, bool show_ui) {
   if (wifiLinkUp()) {
-    onStaConnected();
+    onStaLinkReady();
     return true;
   }
 
@@ -251,7 +255,7 @@ bool tryConnectWithUi(const String& ssid, const String& pass, bool show_ui) {
     startStaConnect(ssid, pass);
 
     if (waitForLinkWithUi(ui_ssid, config::kWifiConnectAttemptMs)) {
-      onStaConnected();
+      onStaLinkReady();
       return true;
     }
   }
@@ -268,6 +272,13 @@ bool connectSavedNetwork(bool show_ui) {
   return tryConnectWithUi(ssid, pass, show_ui);
 }
 
+bool waitForStaAfterPortal() {
+  if (wifiLinkUp()) {
+    return true;
+  }
+  return connectSavedNetwork(true);
+}
+
 bool openConfigPortal(WiFiManager& wm) {
   prepareWifiForPortal();
   bootScreenShowPortalHint();
@@ -281,24 +292,27 @@ bool openConfigPortal(WiFiManager& wm) {
   }
 
   while (wm.getConfigPortalActive()) {
-    inputPollLongPress();
+    //inputPollLongPress();
     wm.process();
     delay(5);
   }
 
-  return wifiLinkUp();
+  return waitForStaAfterPortal() && wifiLinkUp();
 }
 
 bool runConfigPortalFlow() {
   WiFiManager wm;
   configureWifiManager(wm);
-  if (openConfigPortal(wm) && wifiLinkUp()) {
-    WiFi.setAutoReconnect(true);
-    Serial.printf("Connected: %s  IP %s\n", WiFi.SSID().c_str(),
-                  WiFi.localIP().toString().c_str());
-    onStaConnected();
-    return true;
+  if (!openConfigPortal(wm) || !wifiLinkUp()) {
+    return false;
   }
+
+  Serial.printf("Connected: %s  IP %s\n", WiFi.SSID().c_str(),
+                WiFi.localIP().toString().c_str());
+  onStaLinkReady();
+  Serial.println("WiFi configured — rebooting");
+  delay(400);
+  esp_restart();
   return false;
 }
 
@@ -309,7 +323,7 @@ bool wifiShowsSetupScreenOnBoot() {
     return true;
   }
   Preferences prefs;
-  if (!prefs.begin(kWifiPrefsNamespace, true)) {
+  if (!prefs.begin(kWifiPrefsNamespace, false)) {
     return false;
   }
   const bool pending = prefs.getBool(kPrefsForcePortalKey, false);
@@ -326,29 +340,17 @@ void wifiResetCredentialsAndReboot() {
 
 bool wifiReconnect() {
   Serial.println("WiFi reconnecting...");
-  if (connectSavedNetwork(true)) {
-    s_reconnect_failures = 0;
-    return true;
-  }
-
   if (!storedWifiCredentials()) {
     return false;
   }
 
-  s_reconnect_failures++;
-  if (s_reconnect_failures < kReconnectFailuresBeforePortal) {
-    return false;
-  }
-
-  s_reconnect_failures = 0;
-  Serial.println("Saved WiFi still failing, opening setup portal");
-  return runConfigPortalFlow();
+  // Background retry only — do not open the captive portal or overwrite the UI.
+  return connectSavedNetwork(false);
 }
 
 bool wifiSetupConnect() {
   const bool force_portal = consumeForceConfigPortal();
   WiFi.setAutoReconnect(false);
-  s_reconnect_failures = 0;
 
   if (force_portal) {
     eraseWifiCredentials();
@@ -367,18 +369,15 @@ bool wifiSetupConnect() {
   Serial.println("Connecting to WiFi (portal opens if needed)...");
 
   if (wifiLinkUp()) {
-    WiFi.setAutoReconnect(true);
     Serial.printf("Connected: %s  IP %s\n", WiFi.SSID().c_str(),
                   WiFi.localIP().toString().c_str());
-    onStaConnected();
+    onStaLinkReady();
     return true;
   }
 
   if (storedWifiCredentials() && connectSavedNetwork(true)) {
-    WiFi.setAutoReconnect(true);
     Serial.printf("Connected: %s  IP %s\n", WiFi.SSID().c_str(),
                   WiFi.localIP().toString().c_str());
-    onStaConnected();
     return true;
   }
 

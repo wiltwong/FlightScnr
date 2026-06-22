@@ -37,7 +37,7 @@ enum SwipeGesture : uint8_t {
 SwipeGesture inputConsumeSwipe();
 
 /** Poll for knob long-press (Wi-Fi reset). May reboot the device. */
-void inputPollLongPress();
+//void inputPollLongPress();
 
 /** Drop queued knob/encoder/touch events (e.g. after idle timeout to radar). */
 void inputDiscardPendingInteractions();

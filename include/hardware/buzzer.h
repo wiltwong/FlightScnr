@@ -1,5 +1,5 @@
 #pragma once
-
+#ifdef ENABLE_SOUND
 #include <cstdint>
 
 namespace hardware {
@@ -27,3 +27,4 @@ void saveBeepEnabledFromForm(const char* checkbox_value);
 void saveBeepToneFromForm(const char* value);
 
 }  // namespace hardware
+#endif

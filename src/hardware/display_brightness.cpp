@@ -4,6 +4,7 @@
 #include <cstdlib>
 
 #include "hardware/display.h"
+#include "hardware/pin_config.h"
 
 namespace hardware {
 
@@ -49,7 +50,15 @@ void displayApplyBrightness() {
   if (panel == nullptr) {
     return;
   }
-  panel->Display_Brightness(panelLevelForPercent(s_percent));
+  //panel->Display_Brightness(panelLevelForPercent(s_percent));
+  //ledcAttach(GFX_BL, 5000, 8);
+#if defined(ESP_ARDUINO_VERSION_MAJOR) && (ESP_ARDUINO_VERSION_MAJOR >= 3)
+  ledcWrite(GFX_BL, panelLevelForPercent(s_percent)); 
+#else
+  //ledcSetup(0, 5000, 8);
+  //ledcAttachPin(GFX_BL, 0);
+  ledcWrite(0, panelLevelForPercent(s_percent));
+#endif
 }
 
 void displayBrightnessStep(int8_t delta) {
@@ -57,6 +66,7 @@ void displayBrightnessStep(int8_t delta) {
     return;
   }
 
+  // FIXME: Do not exceed 100% or go below 20%
   size_t idx = levelIndexFor(s_percent);
   if (delta > 0) {
     idx = (idx + 1) % kLevelCount;

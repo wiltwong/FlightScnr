@@ -7,7 +7,7 @@
 #include <cstring>
 
 #include "config.h"
-#include "hardware/buzzer.h"
+//#include "hardware/buzzer.h"
 #include "hardware/display.h"
 #include "hardware/display_brightness.h"
 #include "hardware/display_font.h"
@@ -145,10 +145,13 @@ void buildDisplayStrings(char* bright_line, size_t bright_len, char* units_line,
            ui::radar::distanceInMiles() ? "miles" : "km");
   snprintf(compass_line, compass_len, "Compass Rose: %s",
            ui::radar::showCompassRose() ? "on" : "off");
-  snprintf(beep_line, beep_len, "UI Beep: %s",
-           hardware::buzzerEnabled() ? "on" : "off");
-  snprintf(beep_tone_line, beep_tone_len, "Beep Tone: %c",
-           hardware::buzzerToneLetter());
+  
+  //snprintf(beep_line, beep_len, "UI Beep: %s",
+  //         hardware::buzzerEnabled() ? "on" : "off");
+  //snprintf(beep_tone_line, beep_tone_len, "Beep Tone: %c",
+  //         hardware::buzzerToneLetter());
+  snprintf(beep_line, beep_len, "UI Beep: %s", "on");
+  snprintf(beep_tone_line, beep_tone_len, "Beep Tone: %s", "A");
 }
 
 void drawMainPage(uint16_t bg, uint16_t fg, uint16_t label_fg, uint16_t hint_fg) {
@@ -391,12 +394,12 @@ void infoScreenHandleKnob(int8_t delta) {
     case DisplayAdjustRow::Compass:
       ui::radar::toggleCompassRose();
       break;
-    case DisplayAdjustRow::BeepOn:
-      hardware::buzzerSetEnabled(!hardware::buzzerEnabled());
-      break;
-    case DisplayAdjustRow::BeepTone:
-      hardware::buzzerToneStep(delta);
-      break;
+    //case DisplayAdjustRow::BeepOn:
+    //  hardware::buzzerSetEnabled(!hardware::buzzerEnabled());
+    //  break;
+    //case DisplayAdjustRow::BeepTone:
+    //  hardware::buzzerToneStep(delta);
+    //  break;
   }
   infoScreenDraw();
 }

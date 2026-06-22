@@ -20,7 +20,10 @@ class PlaneGfx {
  public:
   PlaneGfx() = default;
 
-  void attach(Arduino_GFX* gfx) { gfx_ = gfx; }
+  void attach(Arduino_GFX* gfx, bool hardware_panel = false) {
+    gfx_ = gfx;
+    hardware_panel_ = hardware_panel;
+  }
   Arduino_GFX* raw() const { return gfx_; }
 
   void fillScreen(uint16_t color);
@@ -51,17 +54,26 @@ class PlaneGfx {
 
   void draw16bitRGBBitmap(int16_t x, int16_t y, const uint16_t* bitmap, int16_t w,
                           int16_t h);
-  void draw16bitRGBBitmap(int16_t x, int16_t y, const uint16_t* bitmap,
-                          uint16_t transparent_color, int16_t w, int16_t h);
+  void draw16bitRGBBitmapWithTranColor(int16_t x, int16_t y, const uint16_t *bitmap, uint16_t transparent_color, int16_t w, int16_t h);
+
   /** Copies a screen region; caller must hold startWrite() on the target display. */
   void blitRegionFromBuffer(int16_t x, int16_t y, int16_t w, int16_t h,
                             const uint16_t* src, int16_t src_stride);
 
  private:
   Arduino_GFX* gfx_ = nullptr;
+  bool hardware_panel_ = false;
   TextDatum datum_ = TextDatum::TopLeft;
   bool write_open_ = false;
 
+#ifndef CROWPANEL21
+  bool targetUsesPixelAlign2() const;
+#endif
+  void drawLinePixelAlign2(int16_t x0, int16_t y0, int16_t x1, int16_t y1,
+                           uint16_t color);
+  /** Single SPI flush; skips nested startWrite when a batch is already open. */
+  void panelFlushBitmap(int16_t x, int16_t y, int16_t w, int16_t h,
+                        const uint16_t* src);
   void mapDatum(const char* text, int16_t x, int16_t y, int16_t* out_x,
                 int16_t* out_y) const;
 };

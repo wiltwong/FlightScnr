@@ -14,7 +14,7 @@ constexpr int kLineGap = 10;
 const int kCenterX = config::kDisplayWidth / 2;
 const int kCenterY = config::kDisplayHeight / 2;
 
-constexpr int kSonarOuterRadius = 186;
+constexpr int kSonarOuterRadius = (config::kDisplayHeight / 2) - 20; //186;
 constexpr int kSonarInnerRadius = 118;
 constexpr int kSonarRingStepPx = 6;
 constexpr uint16_t kSonarGuideColor = 0x0320;

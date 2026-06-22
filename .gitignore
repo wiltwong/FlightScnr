@@ -2,6 +2,18 @@
 .pio/
 .pioenvs/
 .piolibdeps/
+.vscode/
+.dummy/
+managed_components/
+*.code-workspace
+CMakeLists.txt
+sdkconfig.*
+dependencies.lock
+.cache/
+.clangd
+
+data/airports_lookup.h
+data/icao_types_lookup.h
 
 # Build / release outputs
 release/

@@ -7,7 +7,7 @@
 namespace config {
 
 #ifndef FLIGHTSCNR_FIRMWARE_VERSION
-#define FLIGHTSCNR_FIRMWARE_VERSION "dev"
+#define FLIGHTSCNR_FIRMWARE_VERSION "Elecrow Rotary 2.1\" DEV"
 #endif
 
 /** Build-time firmware version (release CI sets FLIGHTSCNR_FIRMWARE_VERSION). */
@@ -25,7 +25,7 @@ constexpr char kPortalApName[] = "FlightScnr-AP";
 constexpr char kPortalIp[] = "4.3.2.1";
 /** mDNS host (no ".local" suffix); browser: http://flightscnr.local */
 constexpr char kPortalHostname[] = "flightscnr";
-constexpr char kPortalHostUrl[] = "flightscnr.local";
+constexpr char kPortalHostUrl[] = "flightscnr.lan";
 
 /** Per-attempt STA connect wait (ms); retried kWifiConnectAttempts times. */
 constexpr unsigned long kWifiConnectAttemptMs = 15000;
@@ -38,18 +38,18 @@ constexpr unsigned long kWifiDownGraceMs = 4000;
 constexpr unsigned long kWifiReconnectIntervalMs = 15000;
 
 // --- Knob button (GPIO 0, active LOW) ---
-constexpr gpio_num_t kKnobKeyPin = GPIO_NUM_0;
-constexpr unsigned long kKnobResetHoldMs = 3000UL;
+constexpr uint8_t kKnobKeyPin = 5;
+constexpr unsigned long kKnobResetHoldMs = 30000UL;
 /** Ignore knob taps shorter than this (debounce). */
 constexpr unsigned long kKnobTapMinMs = 40UL;
 
 // --- Rotary encoder ---
-constexpr gpio_num_t kKnobPinA = GPIO_NUM_1;
-constexpr gpio_num_t kKnobPinB = GPIO_NUM_2;
+constexpr gpio_num_t kKnobPinA = GPIO_NUM_4;
+constexpr gpio_num_t kKnobPinB = GPIO_NUM_42;
 
-// --- Display: SH8601 AMOLED 1.2" round 390×390 (QSPI) ---
-constexpr int kDisplayWidth = 390;
-constexpr int kDisplayHeight = 390;
+// --- Display: SH7701S AMOLED 1.2" round 480x480 (RGB) ---
+constexpr int kDisplayWidth = 480;
+constexpr int kDisplayHeight = 480;
 
 /** Flight detail / device settings return to radar; clock settings return to clock (ms). */
 constexpr unsigned long kSecondaryScreenTimeoutMs = 10000;

@@ -1,8 +1,7 @@
 #include "services/adsb_client.h"
 
 #include <Arduino.h>
-#include <HTTPClient.h>
-#include <WiFiClientSecure.h>
+
 
 #include <ArduinoJson.h>
 
@@ -17,6 +16,7 @@
 #include <freertos/task.h>
 
 #include "config.h"
+#include "global_vars.h"
 #include "geo/flat_earth.h"
 #include "services/airport_lookup.h"
 #include "services/route_lookup.h"
@@ -26,6 +26,7 @@ namespace services::adsb {
 namespace {
 
 constexpr char kApiBase[] = "https://opendata.adsb.fi/api/v3/lat/";
+//constexpr char kApiBase[] = "http://ubuntu-focal.lan:8080/api/v3/lat/";
 constexpr float kKmPerNm = 1.852f;
 void logAircraftToSerial(const Aircraft* planes, size_t count, double center_lat,
                          double center_lon) {
@@ -330,11 +331,61 @@ void fillTagFields(Aircraft* ac, const JsonObject& plane) {
   fillRouteIcaoFromAdsb(ac, plane);
 }
 
+void applyRouteFieldsByCallsignImpl(const char* callsign, const char* airline,
+                                    const char* origin, const char* dest) {
+  if (callsign == nullptr || callsign[0] == '\0') {
+    return;
+  }
+
+  if (s_aircraft_mutex != nullptr) {
+    xSemaphoreTake(s_aircraft_mutex, portMAX_DELAY);
+  }
+
+  for (size_t i = 0; i < s_aircraft_count; ++i) {
+    if (strcmp(s_aircraft[i].callsign, callsign) != 0) {
+      continue;
+    }
+    Aircraft& ac = s_aircraft[i];
+    if (airline != nullptr && airline[0] != '\0') {
+      strncpy(ac.airline, airline, sizeof(ac.airline) - 1);
+      ac.airline[sizeof(ac.airline) - 1] = '\0';
+    }
+    if (origin != nullptr && origin[0] != '\0') {
+      char resolved[5];
+      if (services::airport::normalizeRouteCode(origin, resolved, sizeof(resolved))) {
+        strncpy(ac.route_origin, resolved, sizeof(ac.route_origin) - 1);
+      } else {
+        strncpy(ac.route_origin, origin, sizeof(ac.route_origin) - 1);
+      }
+      ac.route_origin[sizeof(ac.route_origin) - 1] = '\0';
+    }
+    if (dest != nullptr && dest[0] != '\0') {
+      char resolved[5];
+      if (services::airport::normalizeRouteCode(dest, resolved, sizeof(resolved))) {
+        strncpy(ac.route_dest, resolved, sizeof(ac.route_dest) - 1);
+      } else {
+        strncpy(ac.route_dest, dest, sizeof(ac.route_dest) - 1);
+      }
+      ac.route_dest[sizeof(ac.route_dest) - 1] = '\0';
+    }
+    break;
+  }
+
+  if (s_aircraft_mutex != nullptr) {
+    xSemaphoreGive(s_aircraft_mutex);
+  }
+}
+
 }  // namespace
 
 size_t aircraftCount() { return s_aircraft_count; }
 
 const Aircraft* aircraftList() { return s_aircraft; }
+
+void applyRouteFieldsByCallsign(const char* callsign, const char* airline,
+                                const char* origin, const char* dest) {
+  applyRouteFieldsByCallsignImpl(callsign, airline, origin, dest);
+}
 
 void trafficFilterBootLoad() {
   Preferences prefs;
@@ -434,10 +485,19 @@ bool fetchUpdateBlocking(double center_lat, double center_lon, float fetch_radiu
   url += "/dist/";
   url += String(dist_nm, 1);
 
-  WiFiClientSecure client;
-  client.setInsecure();
 
-  HTTPClient http;
+  /*
+  Serial.printf("Total heap: %d\n", ESP.getHeapSize());
+  Serial.printf("Free heap: %d\n", ESP.getFreeHeap());
+  Serial.printf("Total PSRAM: %d\n", ESP.getPsramSize());
+  Serial.printf("Free PSRAM: %d\n", ESP.getFreePsram());
+
+  delay(500);
+  */
+
+  client.setInsecure();
+  //Serial.printf("adsb: fetching %s\n", url.c_str());
+
   if (!http.begin(client, url)) {
     Serial.println("adsb: http.begin failed");
     return false;

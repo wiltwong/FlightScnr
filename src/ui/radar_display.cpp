@@ -61,6 +61,9 @@ struct CachedAircraftMarker {
 
 CachedAircraftMarker s_prev_aircraft_markers[services::adsb::kMaxAircraft];
 size_t s_prev_aircraft_marker_count = 0;
+/** Scratch for ADS-B refresh — must not live on loopTask stack (~8 KB). */
+CachedAircraftMarker s_current_aircraft_markers[services::adsb::kMaxAircraft];
+bool s_marker_prev_used[services::adsb::kMaxAircraft] = {};
 
 class DrawScope {
  public:
@@ -823,18 +826,77 @@ IntRect markerBounds(const CachedAircraftMarker& marker) {
   return aircraftMarkerBounds(marker.x, marker.y, marker.plane);
 }
 
-IntRect unionMarkerBounds(const CachedAircraftMarker* markers, size_t count) {
-  IntRect bounds{};
-  for (size_t i = 0; i < count; ++i) {
-    bounds = unionRect(bounds, markerBounds(markers[i]));
+bool aircraftIdentityMatch(const services::adsb::Aircraft& a,
+                           const services::adsb::Aircraft& b) {
+  if (a.callsign[0] != '\0' && b.callsign[0] != '\0') {
+    return strcmp(a.callsign, b.callsign) == 0;
   }
-  return bounds;
+  constexpr float kPosEps = 0.001f;
+  return fabsf(a.lat - b.lat) < kPosEps && fabsf(a.lon - b.lon) < kPosEps;
 }
 
-IntRect unionAllAircraftDirtyRects() {
-  CachedAircraftMarker markers[services::adsb::kMaxAircraft];
-  const size_t count = collectAircraftMarkers(markers, services::adsb::kMaxAircraft);
-  return unionMarkerBounds(markers, count);
+bool markerVisualChanged(const CachedAircraftMarker& prev,
+                         const CachedAircraftMarker& curr) {
+  if (prev.beyond_dot != curr.beyond_dot) {
+    return true;
+  }
+  if (prev.x != curr.x || prev.y != curr.y) {
+    return true;
+  }
+  if (fabsf(prev.plane.track_deg - curr.plane.track_deg) > 0.5f) {
+    return true;
+  }
+  if (strcmp(prev.plane.callsign, curr.plane.callsign) != 0) {
+    return true;
+  }
+  if (strcmp(prev.plane.type, curr.plane.type) != 0) {
+    return true;
+  }
+  if (strcmp(prev.plane.alt, curr.plane.alt) != 0) {
+    return true;
+  }
+  if (prev.plane.vert_rate_fpm != curr.plane.vert_rate_fpm) {
+    return true;
+  }
+  return false;
+}
+
+IntRect unionChangedMarkerBounds(const CachedAircraftMarker* current, size_t curr_count) {
+  memset(s_marker_prev_used, 0, sizeof(s_marker_prev_used));
+  IntRect dirty{};
+
+  for (size_t c = 0; c < curr_count; ++c) {
+    int prev_i = -1;
+    for (size_t p = 0; p < s_prev_aircraft_marker_count; ++p) {
+      if (s_marker_prev_used[p]) {
+        continue;
+      }
+      if (aircraftIdentityMatch(s_prev_aircraft_markers[p].plane, current[c].plane)) {
+        prev_i = static_cast<int>(p);
+        break;
+      }
+    }
+
+    if (prev_i >= 0) {
+      s_marker_prev_used[static_cast<size_t>(prev_i)] = true;
+      if (markerVisualChanged(s_prev_aircraft_markers[static_cast<size_t>(prev_i)],
+                              current[c])) {
+        dirty = unionRect(dirty,
+                          markerBounds(s_prev_aircraft_markers[static_cast<size_t>(prev_i)]));
+        dirty = unionRect(dirty, markerBounds(current[c]));
+      }
+    } else {
+      dirty = unionRect(dirty, markerBounds(current[c]));
+    }
+  }
+
+  for (size_t p = 0; p < s_prev_aircraft_marker_count; ++p) {
+    if (!s_marker_prev_used[p]) {
+      dirty = unionRect(dirty, markerBounds(s_prev_aircraft_markers[p]));
+    }
+  }
+
+  return dirty;
 }
 
 void savePrevAircraftMarkers() {
@@ -884,9 +946,7 @@ static void blitStatic() {
     return;
   }
 
-  tft.startWrite();
   s_content.pushSprite(0, 0);
-  tft.endWrite();
   tft.setTextDatum(TextDatum::TopLeft);
   s_sweep_track_valid = false;
   savePrevAircraftMarkers();
@@ -919,6 +979,8 @@ void radarDisplayRefreshSweep() {
   if (s_sweep_track_valid) {
     erase_dirty = unionRect(s_prev_sweep_dirty, new_dirty);
   }
+
+  tft.startWrite();
   if (!rectEmpty(erase_dirty)) {
     blitRegionFromContent(erase_dirty, content, content_stride);
   }
@@ -928,6 +990,7 @@ void radarDisplayRefreshSweep() {
         (i == new_count - 1) ? radar::kColorSweep : radar::kColorSweepTrail;
     drawSweepSpokeOn(tft, new_angles[i], color);
   }
+  tft.endWrite();
   tft.setTextDatum(TextDatum::TopLeft);
 
   s_prev_sweep_dirty = new_dirty;
@@ -957,6 +1020,14 @@ void radarDisplayDraw() {
 void radarDisplayRefreshAircraft() {
   initPalette();
 
+  const size_t curr_count = collectAircraftMarkers(s_current_aircraft_markers,
+                                                    services::adsb::kMaxAircraft);
+  const IntRect dirty =
+      unionChangedMarkerBounds(s_current_aircraft_markers, curr_count);
+  if (rectEmpty(dirty)) {
+    return;
+  }
+
   if (!s_bg_ready || !rebuildContentLayer()) {
     blitStatic();
     radarDisplayRefreshSweep();
@@ -966,33 +1037,10 @@ void radarDisplayRefreshAircraft() {
   const uint16_t* content = s_content.buffer();
   const int content_stride = s_content.width();
 
-  float hold_angles[kMaxSweepSpokes] = {};
-  const int hold_count =
-      collectSweepAngles(currentSweepAngleDeg(), hold_angles, kMaxSweepSpokes);
-  constexpr int kSweepMargin =
-      static_cast<int>(radar::kSweepLineHalfWidth * 2.0f + 4.0f);
-  const IntRect sweep_dirty = unionSpokeBounds(hold_angles, hold_count, kSweepMargin);
+  tft.startWrite();
+  blitRegionFromContent(dirty, content, content_stride);
+  tft.endWrite();
 
-  IntRect dirty = unionMarkerBounds(s_prev_aircraft_markers, s_prev_aircraft_marker_count);
-  dirty = unionRect(dirty, unionAllAircraftDirtyRects());
-  dirty = unionRect(dirty, sweep_dirty);
-  if (s_sweep_track_valid) {
-    dirty = unionRect(dirty, s_prev_sweep_dirty);
-  }
-
-  if (!rectEmpty(dirty)) {
-    blitRegionFromContent(dirty, content, content_stride);
-  }
-
-  for (int i = 0; i < hold_count; ++i) {
-    const uint16_t color =
-        (i == hold_count - 1) ? radar::kColorSweep : radar::kColorSweepTrail;
-    drawSweepSpokeOn(tft, hold_angles[i], color);
-  }
-  tft.setTextDatum(TextDatum::TopLeft);
-
-  s_prev_sweep_dirty = sweep_dirty;
-  s_sweep_track_valid = true;
   savePrevAircraftMarkers();
 }
 

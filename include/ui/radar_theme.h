@@ -4,12 +4,12 @@
 
 namespace ui::radar {
 
-constexpr int kSize = 390;
+constexpr int kSize = 480;
 constexpr int kCenterX = kSize / 2;
 constexpr int kCenterY = kSize / 2;
 
 /** Outermost grid ring (inside edge labels). */
-constexpr int kGridOuterRadius = 174;
+constexpr int kGridOuterRadius = (kSize / 2) - 20;
 
 /** N: pixels inset from top edge (TopCenter anchor). */
 constexpr int kCardinalNorthOffsetY = 10;
@@ -26,7 +26,7 @@ constexpr int kScaleGapOuterRingKm = 20;
 constexpr float kScaleLabelBearingDeg = 245.5f;
 
 /** Target cap height (px) for N/S/E/W. */
-constexpr int kCardinalLabelHeightPx = 23;
+constexpr int kCardinalLabelHeightPx = 10;
 /** Scale label is this many px shorter than cardinals. */
 constexpr int kScaleBelowCardinalPx = 5;
 
@@ -48,7 +48,7 @@ constexpr int kAircraftInsideRingInsetPx = kAircraftIconRadiusPx + 2;
 /** Beyond-ring traffic: compact aircraft icons on screen rim. */
 constexpr int kBeyondRingScreenMarginPx = 3;
 /** Target cap height (px) for aircraft tags (bold, slightly above scale label). */
-constexpr int kAircraftTagLabelHeightPx = 21;
+constexpr int kAircraftTagLabelHeightPx = 3;
 
 /** Radar sweep: one full rotation period (ms). */
 constexpr unsigned long kSweepPeriodMs = 6000;
