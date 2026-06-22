@@ -13,6 +13,8 @@
 <img src="assets/FlightScnr.JPG" width="500" />
 </p>
 
+This is a fork of the original project that can be used with the **[CrowPanel 2.1"-HMI ESP32 Rotary Display](https://www.elecrow.com/crowpanel-2-1inch-hmi-esp32-rotary-display-480-480-ips-round-touch-knob-screen.html)**. There is no sound on this device by default do the sound is disabled. Due to the memory requirements with driving the display 480*480 with an SRAM buffer, a hybrid compile for the ESP-IDF is needed to instuct the mbedTLS to utilize the PSRAM. The code has been ported to use Ardunio Core 3.x and compiles with the **[pioardunio IDE](https://github.com/pioarduino/pioarduino-vscode-ide)** A 3d printed stand for the CrowPanel can be found via this [Printables Link](https://www.printables.com/model/1750358-stand-for-elecrow-crowpanel-21inch-hmi-esp32-rotar).
+
 Open-source firmware that shows **live ADS-B traffic** on a sweeping radar around your preset position. Built for the **[LilyGO T-Encoder Pro](https://www.lilygo.cc/zo4apl)**, inspired by desktop flight-tracking radar gadgets such as **[ESP32-Plane-Radar](https://github.com/MatixYo/ESP32-Plane-Radar)** and **[deskradar](https://github.com/arvis91/deskradar)**.
 
 Firmware is released under **[CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/)** (see [LICENSE](LICENSE)) instead of MIT. Permissive MIT licensing on similar projects has made it easy for vendors to ship closed derivatives without keeping firmware open to the community. This license keeps the source shareable for hobbyists and open-source builders while discouraging proprietary takeaways.
