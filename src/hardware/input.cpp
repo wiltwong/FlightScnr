@@ -8,7 +8,9 @@
 #include <Adafruit_CST8XX.h>
 #include "config.h"
 #include "global_vars.h"
-//#include "hardware/buzzer.h"
+#ifdef ENABLE_SOUND
+#include "hardware/buzzer.h"
+#endif
 #include "hardware/pin_config.h"
 #include "services/wifi_setup.h"
 #include <Adafruit_PCF8574.h>
@@ -209,7 +211,9 @@ void tsTask(void *pvParameters) {
       s_touch_last_x = points.x;
       s_touch_last_y = points.y;
       s_touch_tracking = true;
-      //hardware::buzzerClick();
+#ifdef ENABLE_SOUND
+      hardware::buzzerClick();
+#endif
     } else if (down && s_touch_tracking) {
       s_touch_last_x = points.x;
       s_touch_last_y = points.y;

@@ -7,6 +7,9 @@
 
 #include "config.h"
 #include "global_vars.h"
+#ifdef ENABLE_SOUND
+#include "hardware/buzzer.h"
+#endif
 #include "hardware/pin_config.h"
 #include "hardware/display.h"
 #include "hardware/input.h"
@@ -330,7 +333,9 @@ void handleInput() {
     const int8_t enc = inputConsumeEncoderDelta();
     if (enc != 0) {
       onRangeStep(enc);
-      //hardware::buzzerClick();
+#ifdef ENABLE_SOUND
+      hardware::buzzerClick();
+#endif
     }
     return;
   }
@@ -340,7 +345,9 @@ void handleInput() {
     if (enc != 0) {
       noteSecondaryActivity();
       onFlightDetailStep(enc);
-      //hardware::buzzerClick();
+#ifdef ENABLE_SOUND
+      hardware::buzzerClick();
+#endif
     }
     return;
   }
@@ -349,7 +356,9 @@ void handleInput() {
     if (ui::infoScreenPage() == ui::InfoSettingsPage::Display) {
       if (inputConsumeKnobPress()) {
         noteSecondaryActivity();
-        //hardware::buzzerClick();
+#ifdef ENABLE_SOUND
+        hardware::buzzerClick();
+#endif
       }
       if (inputConsumeKnobTap()) {
         noteSecondaryActivity();
@@ -360,14 +369,18 @@ void handleInput() {
     } else if (ui::infoScreenPage() == ui::InfoSettingsPage::Colors) {
       if (inputConsumeKnobPress()) {
         noteSecondaryActivity();
-        //hardware::buzzerClick();
+#ifdef ENABLE_SOUND
+        hardware::buzzerClick();
+#endif
       }
     }
     const int8_t enc = inputConsumeEncoderDelta();
     if (enc != 0) {
       noteSecondaryActivity();
       ui::infoScreenHandleKnob(enc);
-      //hardware::buzzerClick();
+#ifdef ENABLE_SOUND
+      hardware::buzzerClick();
+#endif
     }
     return;
   }
@@ -375,7 +388,9 @@ void handleInput() {
   if (g_screen == AppScreen::ClockSettings) {
     if (inputConsumeKnobPress()) {
       noteSecondaryActivity();
-      //hardware::buzzerClick();
+#ifdef ENABLE_SOUND
+      hardware::buzzerClick();
+#endif
     }
     if (inputConsumeKnobTap()) {
       noteSecondaryActivity();
@@ -387,7 +402,9 @@ void handleInput() {
     if (enc != 0) {
       noteSecondaryActivity();
       ui::clockSettingsHandleKnob(enc);
-      //hardware::buzzerClick();
+#ifdef ENABLE_SOUND
+      hardware::buzzerClick();
+#endif
     }
     return;
   }
@@ -490,8 +507,10 @@ void setup() {
   inputInit();
   
   displayInit();
-  //hardware::buzzerInit();
-  //hardware::buzzerBootLoad();
+#ifdef ENABLE_SOUND
+  hardware::buzzerInit();
+  hardware::buzzerBootLoad();
+#endif
   services::map_center::bootLoad();
   ui::radar::scaleBootLoad();
   ui::radar::accentBootLoad();
@@ -510,7 +529,9 @@ void setup() {
 }
 
 void loop() {
-  //hardware::buzzerPoll();
+#ifdef ENABLE_SOUND
+  hardware::buzzerPoll();
+#endif
   tickBootDetailsSplash();
   tickSecondaryScreenTimeout();
   tickClockDisplay();

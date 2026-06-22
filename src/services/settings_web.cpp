@@ -186,12 +186,14 @@ void handleSettingsPage() {
       "<option value=\"D\"%s>D</option>"
       "<option value=\"E\"%s>E</option>"
       "</select>",
-      //hardware::buzzerEnabled() ? " checked" : "",
-      //hardware::buzzerToneLetter() == 'A' ? " selected" : "",
-      //hardware::buzzerToneLetter() == 'B' ? " selected" : "",
-      //hardware::buzzerToneLetter() == 'C' ? " selected" : "",
-      //hardware::buzzerToneLetter() == 'D' ? " selected" : "",
-      //hardware::buzzerToneLetter() == 'E' ? " selected" : ""
+#ifdef ENABLE_SOUND
+      hardware::buzzerEnabled() ? " checked" : "",
+      hardware::buzzerToneLetter() == 'A' ? " selected" : "",
+      hardware::buzzerToneLetter() == 'B' ? " selected" : "",
+      hardware::buzzerToneLetter() == 'C' ? " selected" : "",
+      hardware::buzzerToneLetter() == 'D' ? " selected" : "",
+      hardware::buzzerToneLetter() == 'E' ? " selected" : ""
+#endif
       " checked",
       " selected",
       "",

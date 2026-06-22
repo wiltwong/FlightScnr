@@ -7,7 +7,9 @@
 #include <cstring>
 
 #include "config.h"
-//#include "hardware/buzzer.h"
+#ifdef ENABLE_SOUND
+#include "hardware/buzzer.h"
+#endif
 #include "hardware/display.h"
 #include "hardware/display_brightness.h"
 #include "hardware/display_font.h"
@@ -145,13 +147,15 @@ void buildDisplayStrings(char* bright_line, size_t bright_len, char* units_line,
            ui::radar::distanceInMiles() ? "miles" : "km");
   snprintf(compass_line, compass_len, "Compass Rose: %s",
            ui::radar::showCompassRose() ? "on" : "off");
-  
-  //snprintf(beep_line, beep_len, "UI Beep: %s",
-  //         hardware::buzzerEnabled() ? "on" : "off");
-  //snprintf(beep_tone_line, beep_tone_len, "Beep Tone: %c",
-  //         hardware::buzzerToneLetter());
-  snprintf(beep_line, beep_len, "UI Beep: %s", "on");
-  snprintf(beep_tone_line, beep_tone_len, "Beep Tone: %s", "A");
+#ifdef ENABLE_SOUND
+  snprintf(beep_line, beep_len, "UI Beep: %s",
+           hardware::buzzerEnabled() ? "on" : "off");
+  snprintf(beep_tone_line, beep_tone_len, "Beep Tone: %c",
+           hardware::buzzerToneLetter());
+#else
+  snprintf(beep_line, beep_len, "UI Beep: %s", "off");
+  snprintf(beep_tone_line, beep_tone_len, "Beep Tone: %s", "X");
+#endif
 }
 
 void drawMainPage(uint16_t bg, uint16_t fg, uint16_t label_fg, uint16_t hint_fg) {
@@ -394,12 +398,14 @@ void infoScreenHandleKnob(int8_t delta) {
     case DisplayAdjustRow::Compass:
       ui::radar::toggleCompassRose();
       break;
-    //case DisplayAdjustRow::BeepOn:
-    //  hardware::buzzerSetEnabled(!hardware::buzzerEnabled());
-    //  break;
-    //case DisplayAdjustRow::BeepTone:
-    //  hardware::buzzerToneStep(delta);
-    //  break;
+#ifdef ENABLE_SOUND
+    case DisplayAdjustRow::BeepOn:
+      hardware::buzzerSetEnabled(!hardware::buzzerEnabled());
+      break;
+    case DisplayAdjustRow::BeepTone:
+      hardware::buzzerToneStep(delta);
+      break;
+#endif
   }
   infoScreenDraw();
 }
