@@ -1,4 +1,5 @@
 #include "hardware/display.h"
+#include "config.h"
 #include "hardware/display_init.h"
 
 #include "hardware/display_brightness.h"
@@ -50,10 +51,10 @@ void displayInit() {
     46 /* R0 */, 3 /* R1 */, 8 /* R2 */, 18 /* R3 */, 17 /* R4 */,
     14 /* G0/P22 */, 13 /* G1/P23 */, 12 /* G2/P24 */, 11 /* G3/P25 */, 10 /* G4/P26 */, 9 /* G5 */,
     5 /* B0 */, 45 /* B1 */, 48 /* B2 */, 47 /* B3 */, 21 /* B4 */,
-    1 /* hsync_polarity */, 50 /* hsync_front_porch */, 2 /* hsync_pulse_width */, 44 /* hsync_back_porch */,
-    1 /* vsync_polarity */, 16 /* vsync_front_porch */, 2 /* vsync_pulse_width */, 18 /* vsync_back_porch */,
-    0 /* pclk_active_neg */, 12000000 /* prefer_speed */, false /* useBigEndian */,
-    0 /* de_idle_high */, 0 /* pclk_idle_high */, 10*480 /* bounce_buffer_size_px */);
+    1 /* hsync_polarity */, 10 /* hsync_front_porch */, 4 /* hsync_pulse_width */, 20 /* hsync_back_porch */,
+    1 /* vsync_polarity */, 10 /* vsync_front_porch */, 4 /* vsync_pulse_width */, 20 /* vsync_back_porch */,
+    0 /* pclk_active_neg */, GFX_NOT_DEFINED /* prefer_speed */, false /* useBigEndian */,
+    0 /* de_idle_high */, 0 /* pclk_idle_high */, 8*config::kDisplayHeight /* bounce_buffer_size_px */);
 
   gfx = new Arduino_RGB_Display(
     480 /* width */, 480 /* height */, s_panel , 0 /* rotation */, true /* auto_flush */,
@@ -63,7 +64,7 @@ void displayInit() {
   if (!gfx->begin()) {
     Serial.println("gfx->begin() failed!");
   }
-  //gfx->fillScreen(RGB565_BLACK);
+  gfx->fillScreen(RGB565_BLACK);
 
 #ifdef GFX_BL
   pinMode(GFX_BL, OUTPUT);

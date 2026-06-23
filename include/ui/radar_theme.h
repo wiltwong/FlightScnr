@@ -46,7 +46,7 @@ constexpr int kAircraftLabelGapPx = 3;
 constexpr int kAircraftInsideRingInsetPx = kAircraftIconRadiusPx + 2;
 
 /** Beyond-ring traffic: compact aircraft icons on screen rim. */
-constexpr int kBeyondRingScreenMarginPx = 3;
+constexpr int kBeyondRingScreenMarginPx = 6;
 /** Target cap height (px) for aircraft tags (bold, slightly above scale label). */
 constexpr int kAircraftTagLabelHeightPx = 3;
 
