@@ -53,7 +53,7 @@ void displayInit() {
     5 /* B0 */, 45 /* B1 */, 48 /* B2 */, 47 /* B3 */, 21 /* B4 */,
     1 /* hsync_polarity */, 10 /* hsync_front_porch */, 4 /* hsync_pulse_width */, 20 /* hsync_back_porch */,
     1 /* vsync_polarity */, 10 /* vsync_front_porch */, 4 /* vsync_pulse_width */, 20 /* vsync_back_porch */,
-    0 /* pclk_active_neg */, GFX_NOT_DEFINED /* prefer_speed */, false /* useBigEndian */,
+    0 /* pclk_active_neg */, 14000000 /* prefer_speed */, false /* useBigEndian */,
     0 /* de_idle_high */, 0 /* pclk_idle_high */, 8*config::kDisplayHeight /* bounce_buffer_size_px */);
 
   gfx = new Arduino_RGB_Display(
@@ -72,10 +72,10 @@ void displayInit() {
 #endif
 
 #if defined(ESP_ARDUINO_VERSION_MAJOR) && (ESP_ARDUINO_VERSION_MAJOR >= 3)
-  ledcAttach(GFX_BL, 5000, 8);
+  ledcAttach(GFX_BL, 20000, 8);
   ledcWrite(GFX_BL, 204); 
 #else
-  ledcSetup(0, 5000, 8);
+  ledcSetup(0, 20000, 8);
   ledcAttachPin(GFX_BL, 0);
   ledcWrite(0, 204);
 #endif

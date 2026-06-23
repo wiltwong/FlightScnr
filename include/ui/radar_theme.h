@@ -1,10 +1,11 @@
 #pragma once
 
+#include "config.h"
 #include <cstdint>
 
 namespace ui::radar {
 
-constexpr int kSize = 480;
+constexpr int kSize = config::kDisplayWidth;
 constexpr int kCenterX = kSize / 2;
 constexpr int kCenterY = kSize / 2;
 
@@ -51,7 +52,7 @@ constexpr int kBeyondRingScreenMarginPx = 6;
 constexpr int kAircraftTagLabelHeightPx = 3;
 
 /** Radar sweep: one full rotation period (ms). */
-constexpr unsigned long kSweepPeriodMs = 6000;
+constexpr unsigned long kSweepPeriodMs = 10000;
 /** Target animation frame interval (ms). */
 constexpr unsigned long kSweepFrameMs = 33;
 /** Sweep line from center to this radius (px). */
